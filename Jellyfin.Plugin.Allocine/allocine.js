@@ -3,7 +3,7 @@
 
     const CONFIG = {
         apiBase: "/Allocine/Ratings",
-        logoBase: "https://cdn.jsdelivr.net/gh/Druidblack/jellyfin_ratings@main/logo/",
+        logoBase: "https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@main/img/",
         logos: {
             presse: "allocine_crit.png",
             spectateur: "allocine_user.png",
