@@ -34,10 +34,10 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 
 ## 🖼️ Screenshots
 
-|                                Before                                |                                    After                                     |
-| :------------------------------------------------------------------: | :--------------------------------------------------------------------------: |
-|                    _Standard Jellyfin Interface_                     |                            _With Allociné Plugin_                            |
-| ![Before](https://via.placeholder.com/400x200?text=Standard+Ratings) | ![After](https://via.placeholder.com/400x200?text=Allocine+Ratings+Injected) |
+|            Before             |         After          |
+| :---------------------------: | :--------------------: |
+| _Standard Jellyfin Interface_ | _With Allociné Plugin_ |
+|  ![Before](img/without.png)   | ![After](img/with.png) |
 
 > _Note: The ratings appear next to the official certification or duration on the movie details page._
 
