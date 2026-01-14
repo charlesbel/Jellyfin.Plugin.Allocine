@@ -29,15 +29,20 @@ jobs:
 
       - name: 🏗️ Generate Manifest
         env:
-          # URL de base de vos releases (téléchargement des DLLs)
           JP_URL: https://github.com/${{ github.repository }}/releases/download
         run: |
-          # Configure git pour le commit
+          # Configure git
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # Génère le manifest.json en se basant sur le fichier build.yaml et les releases GitHub existantes
-          jprm --verbosity=debug repo add --url=${JP_URL} .
+          # 1. Si le manifest.json n'existe pas, on l'initialise
+          if [ ! -f "manifest.json" ]; then
+            echo "⚠️ manifest.json introuvable. Initialisation du dépôt..."
+            jprm repo init . --url=${JP_URL}
+          fi
+
+          # 2. On ajoute le plugin au manifest (le premier point est le dossier du manifest, le second est le dossier du plugin)
+          jprm repo add . .
 
       - name: 🚀 Commit & Push Manifest
         run: |
