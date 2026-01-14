@@ -1,21 +1,47 @@
-name: '🚀 Publish Plugin'
+name: '🚀 Publish Plugin & Update Manifest'
 
 on:
   release:
     types:
-      - released
+      - published
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/publish.yaml@master
-    with:
-      version: ${{ github.event.release.tag_name }}
-      is-unstable: ${{ github.event.release.prerelease }}
-    secrets:
-      deploy-host: ${{ secrets.DEPLOY_HOST }}
-      deploy-user: ${{ secrets.DEPLOY_USER }}
-      deploy-key: ${{ secrets.DEPLOY_KEY }}
+  publish-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: 💾 Install JPRM
+        run: pip install jprm
+
+      - name: 🏗️ Generate Manifest
+        env:
+          # URL de base de vos releases (téléchargement des DLLs)
+          JP_URL: https://github.com/${{ github.repository }}/releases/download
+        run: |
+          # Configure git pour le commit
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Génère le manifest.json en se basant sur le fichier build.yaml et les releases GitHub existantes
+          jprm --verbosity=debug repo add --url=${JP_URL} .
+
+      - name: 🚀 Commit & Push Manifest
+        run: |
+          git add manifest.json
+          # Ne commit que s'il y a des changements
+          git diff --staged --quiet || git commit -m "🤖 Update manifest.json for ${{ github.event.release.tag_name }}"
+          git push origin master
