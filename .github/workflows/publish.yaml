@@ -40,14 +40,16 @@ jobs:
 
       - name: 🧹 Prepare & Zip Artifacts
         run: |
+
           mkdir -p package
+
           cp bin/publish/Jellyfin.Plugin.Allocine.dll package/
-          cp build.yaml package/
-          ls -la package/
+
           cd package
           zip -r ../Jellyfin.Plugin.Allocine.zip .
           cd ..
-          echo "✅ Archive créée : Jellyfin.Plugin.Allocine.zip"
+
+          echo "✅ Archive créée : Jellyfin.Plugin.Allocine.zip (contient uniquement la DLL)"
 
       - name: ⬆️ Upload Asset to Release
         uses: softprops/action-gh-release@v2
@@ -63,6 +65,7 @@ jobs:
           git config --local user.name "GitHub Action"
 
           if [ ! -f "manifest.json" ]; then
+            echo "⚠️ Initialisation du manifest.json..."
             jprm repo init .
           fi
 
