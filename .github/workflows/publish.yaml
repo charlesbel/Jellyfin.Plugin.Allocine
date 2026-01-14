@@ -32,7 +32,7 @@ jobs:
       - name: 💾 Install JPRM
         run: pip install jprm
 
-      - name: 🏷️ Update Version in build.yaml
+      - name: 🏷️ Inject Version
         run: |
           VERSION=${{ github.event.release.tag_name }}
           VERSION=${VERSION#v}
@@ -41,23 +41,30 @@ jobs:
           fi
           sed -i "s/version: .*/version: \"$VERSION\"/" build.yaml
 
-      - name: 🏗️ Build Plugin
+      - name: 🏗️ Build & Stage
         run: |
           dotnet publish Jellyfin.Plugin.Allocine/Jellyfin.Plugin.Allocine.csproj --configuration Release --output bin/publish
-          cp bin/publish/Jellyfin.Plugin.Allocine.dll .
+
+          mkdir -p packaging
+          cp bin/publish/Jellyfin.Plugin.Allocine.dll packaging/
+          cp build.yaml packaging/
+          cp README.md packaging/
+          cp LICENSE packaging/
 
       - name: 📦 Package Plugin
         run: |
+          cd packaging
           jprm --verbosity=debug plugin build . --output .
-          mv *.zip Jellyfin.Plugin.Allocine.zip
+          mv *.zip ../Jellyfin.Plugin.Allocine.zip
+          cd ..
 
-      - name: ⬆️ Upload Asset to Release
+      - name: ⬆️ Upload Asset
         uses: softprops/action-gh-release@v2
         with:
           files: Jellyfin.Plugin.Allocine.zip
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📝 Update Manifest.json
+      - name: 📝 Update Manifest
         env:
           JP_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}
         run: |
@@ -69,6 +76,8 @@ jobs:
           fi
 
           jprm repo add --url=${JP_URL} . Jellyfin.Plugin.Allocine.zip
+
+          sed -i 's|allocine-ratings/[^"]*\.zip|Jellyfin.Plugin.Allocine.zip|g' manifest.json
 
           git add manifest.json
           git diff --staged --quiet || git commit -m "🤖 Update manifest to ${{ github.event.release.tag_name }}"
