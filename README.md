@@ -81,7 +81,7 @@ To function correctly, this plugin requires:
 2.  Navigate to **Plugins** > **Repositories**.
 3.  Add the following repository URL:
     ```
-    [https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/manifest.json](https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/manifest.json)
+    https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/manifest.json
     ```
 4.  Go to the **Catalog**, find **Allocine Ratings**, and install it.
 5.  **Restart your Jellyfin server.**
