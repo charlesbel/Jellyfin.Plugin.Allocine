@@ -24,7 +24,7 @@ jobs:
         with:
           dotnet-version: '9.0'
 
-      - name: 🐍 Setup Python (pour JPRM)
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -38,21 +38,22 @@ jobs:
         run: |
           dotnet publish Jellyfin.Plugin.Allocine/Jellyfin.Plugin.Allocine.csproj --configuration Release --output bin/publish
 
-          cp build.yaml bin/publish/
-
-      - name: 📦 Package Plugin (Zip)
+      - name: 🧹 Prepare & Zip Artifacts
         run: |
-          cd bin/publish
-          zip -r ../../Jellyfin.Plugin.Allocine.zip .
-          cd ../..
-          echo "✅ Artifact zippé : Jellyfin.Plugin.Allocine.zip"
+          mkdir -p package
+          cp bin/publish/Jellyfin.Plugin.Allocine.dll package/
+          cp build.yaml package/
+          ls -la package/
+          cd package
+          zip -r ../Jellyfin.Plugin.Allocine.zip .
+          cd ..
+          echo "✅ Archive créée : Jellyfin.Plugin.Allocine.zip"
 
       - name: ⬆️ Upload Asset to Release
         uses: softprops/action-gh-release@v2
         with:
           files: Jellyfin.Plugin.Allocine.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📝 Update Manifest.json
         env:
@@ -62,7 +63,6 @@ jobs:
           git config --local user.name "GitHub Action"
 
           if [ ! -f "manifest.json" ]; then
-            echo "⚠️ Création du manifest.json vide..."
             jprm repo init .
           fi
 
