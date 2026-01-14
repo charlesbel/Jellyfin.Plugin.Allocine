@@ -29,31 +29,27 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: 💾 Install Dependencies
-        run: |
-          pip install jprm
-          # Pas besoin de zip manuel, JPRM va le gérer
+      - name: 💾 Install JPRM
+        run: pip install jprm
 
-      - name: 🏗️ Build Plugin (DLL)
+      - name: 🏷️ Update Version in build.yaml
         run: |
-          # 1. Compilation
+          VERSION=${{ github.event.release.tag_name }}
+          VERSION=${VERSION#v}
+          if [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION="${VERSION}.0"
+          fi
+          sed -i "s/version: .*/version: \"$VERSION\"/" build.yaml
+
+      - name: 🏗️ Build Plugin
+        run: |
           dotnet publish Jellyfin.Plugin.Allocine/Jellyfin.Plugin.Allocine.csproj --configuration Release --output bin/publish
-
-          # 2. Préparation pour JPRM
-          # JPRM cherche les "artifacts" listés dans build.yaml RELATIVEMENT au dossier où on lance la commande.
-          # Votre build.yaml attend "Jellyfin.Plugin.Allocine.dll" à la racine.
           cp bin/publish/Jellyfin.Plugin.Allocine.dll .
 
-      - name: 📦 Package Plugin (via JPRM)
+      - name: 📦 Package Plugin
         run: |
-          # C'est LA commande magique qui manquait.
-          # Elle lit build.yaml, génère les métadonnées internes et crée le ZIP valide.
           jprm --verbosity=debug plugin build . --output .
-
-          # JPRM nomme le fichier "Nom_Version.zip". On le renomme pour simplifier la suite.
           mv *.zip Jellyfin.Plugin.Allocine.zip
-
-          echo "✅ Package JPRM créé : Jellyfin.Plugin.Allocine.zip"
 
       - name: ⬆️ Upload Asset to Release
         uses: softprops/action-gh-release@v2
@@ -68,17 +64,12 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # Initialisation si nécessaire
           if [ ! -f "manifest.json" ]; then
-            echo "⚠️ Initialisation du manifest.json..."
             jprm repo init .
           fi
 
-          # Ajout au manifest
-          # Maintenant ça marchera car le zip a été généré PAR jprm
           jprm repo add --url=${JP_URL} . Jellyfin.Plugin.Allocine.zip
 
-          # Commit & Push
           git add manifest.json
-          git diff --staged --quiet || git commit -m "🤖 Update manifest for ${{ github.event.release.tag_name }}"
+          git diff --staged --quiet || git commit -m "🤖 Update manifest to ${{ github.event.release.tag_name }}"
           git push origin master
