@@ -1,5 +1,5 @@
 (function () {
-    console.log("[Allocine] Script loaded - Robust Mode");
+    console.log("[Allocine] Script loaded");
 
     const CONFIG = {
         apiBase: "/Allocine/Ratings",
@@ -69,6 +69,8 @@
     }
 
     async function runLogic() {
+        if (window.location.href.indexOf("id=") === -1) return;
+
         const info = getMovieInfo();
         if (!info) return;
 
@@ -77,9 +79,7 @@
 
         const currentAttr = target.getAttribute("data-allocine-processed");
 
-        if (currentAttr === info.id) {
-            return;
-        }
+        if (currentAttr === info.id) return;
 
         if (currentAttr && currentAttr !== info.id) {
             document.querySelectorAll(".allocine-custom-rating").forEach((el) => el.remove());
@@ -87,6 +87,7 @@
         }
 
         if (!hasValidExternalLinks()) {
+            target.setAttribute("data-allocine-processed", info.id);
             return;
         }
 
@@ -97,16 +98,12 @@
         try {
             const response = await fetch(`${CONFIG.apiBase}?title=${encodeURIComponent(info.title)}&year=${info.year}`);
 
-            if (!response.ok) {
-                console.log("[Allocine] API Error or no results.");
-                return;
-            }
+            if (!response.ok) return;
 
             const data = await response.json();
             injectRatings(target, data);
         } catch (e) {
             console.error("[Allocine] Fetch error:", e);
-            target.removeAttribute("data-allocine-processed");
         }
     }
 
@@ -140,6 +137,8 @@
 
     let debounceTimer = null;
     const observer = new MutationObserver((mutations) => {
+        if (window.location.href.indexOf("id=") === -1) return;
+
         let relevantMutation = false;
         for (const m of mutations) {
             if (m.target.classList && m.target.classList.contains("allocine-custom-rating")) continue;

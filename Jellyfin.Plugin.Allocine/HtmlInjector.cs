@@ -18,7 +18,6 @@ namespace Jellyfin.Plugin.Allocine
             {
                 var type = model.GetType();
 
-                // Lecture via Reflection
                 var itemProperty = type.GetProperty("Item", new[] { typeof(string) });
                 if (itemProperty == null)
                 {
@@ -35,7 +34,6 @@ namespace Jellyfin.Plugin.Allocine
 
                 string scriptTag = "<script src=\"/Allocine/Script\" defer></script>";
 
-                // Éviter la duplication
                 if (content.Contains("src=\"/Allocine/Script\"", StringComparison.OrdinalIgnoreCase))
                 {
                     return content;
@@ -48,7 +46,7 @@ namespace Jellyfin.Plugin.Allocine
                 }
                 else
                 {
-                    newContent = content + scriptTag;
+                    return content;
                 }
 
                 return newContent;
