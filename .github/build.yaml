@@ -1,0 +1,16 @@
+---
+name: "Allocine Ratings"
+# GUID must match the one in Plugin.cs
+guid: "93a5b760-3774-43b3-8d99-09a473434680"
+version: "1.0.0.0"
+targetAbi: "10.9.0.0"
+framework: "net9.0"
+overview: "Ratings from Allociné for Jellyfin."
+description: >
+  Displays press and spectator ratings from Allociné on movie detail pages.
+category: "Metadata"
+owner: "charlesbel"
+artifacts:
+  - "Jellyfin.Plugin.Allocine.dll"
+changelog: >
+  - Initial release
