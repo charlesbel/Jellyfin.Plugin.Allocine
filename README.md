@@ -1,9 +1,12 @@
 # Jellyfin Allociné Ratings Plugin
 
-![Jellyfin Version](https://img.shields.io/badge/jellyfin-10.9.x-blue?style=for-the-badge&logo=jellyfin)
-![.NET Version](https://img.shields.io/badge/.NET-9.0-purple?style=for-the-badge&logo=dotnet)
-![License](https://img.shields.io/github/license/charlesbel/Jellyfin.Plugin.Allocine?style=for-the-badge)
-![Downloads](https://img.shields.io/github/downloads/charlesbel/Jellyfin.Plugin.Allocine/total?style=for-the-badge)
+<p align="center">
+  <img src="https://img.shields.io/badge/jellyfin-10.9.x%2B-blue?style=for-the-badge&logo=jellyfin" alt="Jellyfin Version">
+  <img src="https://img.shields.io/badge/.NET-9.0-purple?style=for-the-badge&logo=dotnet" alt=".NET Version">
+  <img src="https://img.shields.io/github/license/charlesbel/Jellyfin.Plugin.Allocine?style=for-the-badge" alt="License">
+  <img src="https://img.shields.io/github/downloads/charlesbel/Jellyfin.Plugin.Allocine/total?style=for-the-badge" alt="Downloads">
+  <img src="https://img.shields.io/jsdelivr/gh/hm/charlesbel/Jellyfin.Plugin.Allocine?style=for-the-badge&logo=jsdelivr" alt="jsDelivr Hits">
+</p>
 
 <p align="center">
   <img src="https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@master/img/allocine_crit.png" width="100" />
@@ -11,7 +14,7 @@
 </p>
 
 <p align="center">
-  <strong>Seamlessly integrate French cultural ratings into your Jellyfin instance.</strong>
+  <strong>Seamlessly integrate French Allociné ratings into your Jellyfin instance.</strong>
 </p>
 
 ---
@@ -63,11 +66,10 @@ The plugin serves a custom JavaScript file (`allocine.js`) which is injected int
 
 ## ⚠️ Prerequisites
 
-To function correctly, this plugin requires the **Jellyfin Web Page Transformation** capability to inject the necessary JavaScript into the UI.
+To function correctly, this plugin requires:
 
-1.  **Install the "Page Transformation" Plugin:**
-    -   Ensure you have a plugin capable of injecting scripts (often referred to as `Jellyfin.Plugin.FileTransformation` or similar in the plugin catalog).
-    -   _Note: The Allociné plugin attempts to register its script automatically via this interface._
+1.  **Jellyfin Server:** Version **10.9.x** or later.
+2.  **File Transformation Plugin:** This plugin is required to inject the necessary JavaScript into the UI. You can find it [here](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation).
 
 ---
 
