@@ -1,4 +1,4 @@
-name: '🚀 Publish Plugin & Update Manifest'
+name: '🚀 Publish Plugin'
 
 on:
   release:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  publish-manifest:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout Code
@@ -19,30 +19,55 @@ jobs:
           ref: master
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🐍 Setup Python
+      - name: 🔧 Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0'
+
+      - name: 🐍 Setup Python (pour JPRM)
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: 💾 Install JPRM
-        run: pip install jprm
+      - name: 💾 Install Dependencies
+        run: |
+          pip install jprm
+          sudo apt-get install -y zip
 
-      - name: 🏗️ Generate Manifest
+      - name: 🏗️ Build Plugin
+        run: |
+          dotnet publish Jellyfin.Plugin.Allocine/Jellyfin.Plugin.Allocine.csproj --configuration Release --output bin/publish
+
+          cp build.yaml bin/publish/
+
+      - name: 📦 Package Plugin (Zip)
+        run: |
+          cd bin/publish
+          zip -r ../../Jellyfin.Plugin.Allocine.zip .
+          cd ../..
+          echo "✅ Artifact zippé : Jellyfin.Plugin.Allocine.zip"
+
+      - name: ⬆️ Upload Asset to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Jellyfin.Plugin.Allocine.zip
         env:
-          JP_URL: https://github.com/${{ github.repository }}/releases/download
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📝 Update Manifest.json
+        env:
+          JP_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
           if [ ! -f "manifest.json" ]; then
-            echo "⚠️ Initialisation du manifest.json..."
+            echo "⚠️ Création du manifest.json vide..."
             jprm repo init .
           fi
 
-          jprm repo add --url=${JP_URL} . .
+          jprm repo add --url=${JP_URL} . Jellyfin.Plugin.Allocine.zip
 
-      - name: 🚀 Commit & Push Manifest
-        run: |
           git add manifest.json
-          git diff --staged --quiet || git commit -m "🤖 Update manifest.json for ${{ github.event.release.tag_name }}"
+          git diff --staged --quiet || git commit -m "🤖 Update manifest for ${{ github.event.release.tag_name }}"
           git push origin master
