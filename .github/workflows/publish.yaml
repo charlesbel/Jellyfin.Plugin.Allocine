@@ -41,22 +41,10 @@ jobs:
           fi
           sed -i "s/version: .*/version: \"$VERSION\"/" build.yaml
 
-      - name: 🏗️ Build & Stage
+      - name: 📦 Build & Package
         run: |
-          dotnet publish Jellyfin.Plugin.Allocine/Jellyfin.Plugin.Allocine.csproj --configuration Release --output bin/publish
-
-          mkdir -p packaging
-          cp bin/publish/Jellyfin.Plugin.Allocine.dll packaging/
-          cp build.yaml packaging/
-          cp README.md packaging/
-          cp LICENSE packaging/
-
-      - name: 📦 Package Plugin
-        run: |
-          cd packaging
           jprm --verbosity=debug plugin build . --output .
-          mv *.zip ../Jellyfin.Plugin.Allocine.zip
-          cd ..
+          mv *.zip Jellyfin.Plugin.Allocine.zip
 
       - name: ⬆️ Upload Asset
         uses: softprops/action-gh-release@v2
