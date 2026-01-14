@@ -31,22 +31,18 @@ jobs:
         env:
           JP_URL: https://github.com/${{ github.repository }}/releases/download
         run: |
-          # Configure git
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # 1. Si le manifest.json n'existe pas, on l'initialise
           if [ ! -f "manifest.json" ]; then
-            echo "⚠️ manifest.json introuvable. Initialisation du dépôt..."
-            jprm repo init . --url=${JP_URL}
+            echo "⚠️ Initialisation du manifest.json..."
+            jprm repo init .
           fi
 
-          # 2. On ajoute le plugin au manifest (le premier point est le dossier du manifest, le second est le dossier du plugin)
-          jprm repo add . .
+          jprm repo add --url=${JP_URL} . .
 
       - name: 🚀 Commit & Push Manifest
         run: |
           git add manifest.json
-          # Ne commit que s'il y a des changements
           git diff --staged --quiet || git commit -m "🤖 Update manifest.json for ${{ github.event.release.tag_name }}"
           git push origin master
