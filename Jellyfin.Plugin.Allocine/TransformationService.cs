@@ -60,7 +60,7 @@ namespace Jellyfin.Plugin.Allocine
                     var payload = JObject.FromObject(new
                     {
                         id = "4c9abdb3-ddf2-4de0-809d-2faed2aad847",
-                        fileNamePattern = "^index\\.html$",
+                        fileNamePattern = "index.html",
                         callbackAssembly = typeof(HtmlInjector).Assembly.FullName,
                         callbackClass = typeof(HtmlInjector).FullName,
                         callbackMethod = nameof(HtmlInjector.Inject)
