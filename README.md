@@ -30,6 +30,8 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 -   **Dual Ratings:** Displays both _Press_ and _Spectator_ scores.
 -   **Native Look & Feel:** Uses official Allociné icons and specific French number formatting (e.g., `3,5/5`).
 -   **Smart Matching:** Uses a robust matching algorithm based on Title and Year to find the correct film.
+-   **Resilient Mobile Authentication:** Reproduces the anonymous authentication flow used by the current Allociné Android application and renews it automatically when rejected.
+-   **Safe Public Fallback:** Falls back to the public movie page if the mobile API is unavailable, while refusing Cloudflare challenge or malformed pages.
 -   **Idempotent Injection:** Advanced DOM observation logic ensures ratings are injected once and persist correctly during single-page navigation without performance loops.
 -   **Auto-Update:** Ratings are fetched dynamically when the page loads.
 
@@ -50,15 +52,21 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 
 This plugin utilizes a hybrid approach combining a C# backend controller and a JavaScript frontend injection.
 
-### 1. Reverse-Engineered GraphQL API
+### 1. Movie Matching and GraphQL Ratings
 
-Instead of parsing heavy HTML pages, this plugin communicates directly with Allociné's internal **GraphQL API**, which was identified by reverse-engineering the official Allociné mobile application.
+The backend first uses Allociné's public autocomplete endpoint to identify the correct movie from its title and release year. It then retrieves the full-precision Press and Audience ratings from the internal **GraphQL API** used by the official Allociné Android application.
 
-### 2. Anonymous JWT Authentication
+### 2. Anonymous Mobile Authentication
 
-The API requires authentication. The plugin utilizes a hardcoded, generic **Anonymous JWT (JSON Web Token)** extracted from the mobile application logic. This allows the plugin to query the `MovieMini` and `Search` endpoints without requiring individual user accounts or API keys.
+The current mobile API requires an additional FCM registration token. The plugin creates an anonymous Android Check-in identity, registers it for the official Allociné application through Google's `register3` endpoint, and sends the resulting token as `AC-Auth-Token`.
 
-### 3. DOM Injection via Reflection
+No Allociné account or user-provided API key is required. Generated device credentials and tokens are kept **in memory only**, never written to disk or logs. The token is cached for the plugin process and renewed once if GraphQL rejects it.
+
+### 3. Fail-Closed Public Page Fallback
+
+If anonymous registration or GraphQL is unavailable, the backend can extract the rounded Press and Audience ratings from the public Allociné movie page. The parser rejects Cloudflare challenges, incomplete pages, and ambiguous rating blocks instead of returning potentially incorrect values. It does not attempt to bypass anti-bot challenges.
+
+### 4. DOM Injection via Reflection
 
 The plugin serves a custom JavaScript file (`allocine.js`) which is injected into the Jellyfin Web UI. This script observes the DOM changes (MutationObserver) to detect when a user navigates to a movie page, fetches the data from the C# controller, and dynamically inserts the rating badges into the HTML.
 
@@ -104,18 +112,18 @@ If you want to contribute or build the plugin yourself:
 1.  **Clone the repository:**
 
     ```bash
-    git clone [https://github.com/charlesbel/Jellyfin.Plugin.Allocine.git](https://github.com/charlesbel/Jellyfin.Plugin.Allocine.git)
+    git clone https://github.com/charlesbel/Jellyfin.Plugin.Allocine.git
     cd Jellyfin.Plugin.Allocine
     ```
 
 2.  **Build the project:**
 
     ```bash
-    dotnet publish --configuration Release --output bin/Release/net9.0/publish
+    dotnet publish Jellyfin.Plugin.Allocine/Jellyfin.Plugin.Allocine.csproj --configuration Release
     ```
 
 3.  **Copy artifacts:**
-    Copy the contents of `bin/Release/net9.0/publish` to your Jellyfin plugins directory.
+    Copy the contents of `Jellyfin.Plugin.Allocine/bin/Release/net9.0/publish` to your Jellyfin plugins directory.
 
 ---
 
@@ -133,7 +141,7 @@ Contributions are welcome! Please follow these steps:
 
 ## ⚖️ License
 
-Distributed under the **GNU General Public License v3.0**. [cite_start]See `LICENSE` for more information[cite: 197].
+Distributed under the **GNU General Public License v3.0**. See `LICENSE` for more information.
 
 ---
 
