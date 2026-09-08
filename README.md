@@ -1,8 +1,8 @@
 # Jellyfin Allociné Ratings Plugin
 
 <p align="center">
-  <img src="https://img.shields.io/badge/jellyfin-10.9.x%2B-blue?style=for-the-badge&logo=jellyfin" alt="Jellyfin Version">
-  <img src="https://img.shields.io/badge/.NET-9.0-purple?style=for-the-badge&logo=dotnet" alt=".NET Version">
+  <img src="https://img.shields.io/badge/jellyfin-12.0-blue?style=for-the-badge&logo=jellyfin" alt="Jellyfin Version">
+  <img src="https://img.shields.io/badge/.NET-10.0-purple?style=for-the-badge&logo=dotnet" alt=".NET Version">
   <img src="https://img.shields.io/github/license/charlesbel/Jellyfin.Plugin.Allocine?style=for-the-badge" alt="License">
   <img src="https://img.shields.io/github/downloads/charlesbel/Jellyfin.Plugin.Allocine/total?style=for-the-badge" alt="Downloads">
   <img src="https://img.shields.io/jsdelivr/gh/hm/charlesbel/Jellyfin.Plugin.Allocine?style=for-the-badge&logo=jsdelivr" alt="jsDelivr Hits">
@@ -66,18 +66,15 @@ No Allociné account or user-provided API key is required. Generated device cred
 
 If anonymous registration or GraphQL is unavailable, the backend can extract the rounded Press and Audience ratings from the public Allociné movie page. The parser rejects Cloudflare challenges, incomplete pages, and ambiguous rating blocks instead of returning potentially incorrect values. It does not attempt to bypass anti-bot challenges.
 
-### 4. DOM Injection via Reflection
+### 4. Native Jellyfin 12 DOM Injection
 
-The plugin serves a custom JavaScript file (`allocine.js`) which is injected into the Jellyfin Web UI. This script observes the DOM changes (MutationObserver) to detect when a user navigates to a movie page, fetches the data from the C# controller, and dynamically inserts the rating badges into the HTML.
+The plugin serves a custom JavaScript file (`allocine.js`) and injects it into Jellyfin Web through the Jellyfin 12 ASP.NET request pipeline. No companion transformation plugin or modification of Jellyfin's files is required. The script observes DOM changes to detect movie navigation, fetches data from the C# controller, and dynamically inserts the rating badges.
 
 ---
 
 ## ⚠️ Prerequisites
 
-To function correctly, this plugin requires:
-
-1.  **Jellyfin Server:** Version **10.9.x** or later.
-2.  **File Transformation Plugin:** This plugin is required to inject the necessary JavaScript into the UI. You can find it [here](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation).
+This release requires **Jellyfin Server 12.0.x**. Older plugin releases remain available for Jellyfin 10.x. No companion plugin is required.
 
 ---
 
@@ -123,7 +120,7 @@ If you want to contribute or build the plugin yourself:
     ```
 
 3.  **Copy artifacts:**
-    Copy the contents of `Jellyfin.Plugin.Allocine/bin/Release/net9.0/publish` to your Jellyfin plugins directory.
+    Copy the contents of `Jellyfin.Plugin.Allocine/bin/Release/net10.0/publish` to your Jellyfin plugins directory.
 
 ---
 

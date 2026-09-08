@@ -56,7 +56,10 @@ namespace Jellyfin.Plugin.Allocine
         {
             try
             {
-                _logger.LogDebug("[Allocine] Requesting ratings for '{Title}' ({Year})", title, year);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("[Allocine] Requesting ratings for '{Title}' ({Year})", title, year);
+                }
 
                 var searchResult = await SearchMovie(title, year).ConfigureAwait(false);
                 if (searchResult == null)
@@ -86,7 +89,10 @@ namespace Jellyfin.Plugin.Allocine
             var encodedQuery = Uri.EscapeDataString(targetTitle);
             var url = string.Format(CultureInfo.InvariantCulture, SearchUrlFormat, encodedQuery);
 
-            _logger.LogDebug("[Allocine] Search URL: {Url}", url);
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("[Allocine] Search URL: {Url}", url);
+            }
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.UserAgent.ParseAdd(MobileUserAgent);
@@ -103,7 +109,10 @@ namespace Jellyfin.Plugin.Allocine
                 return null;
             }
 
-            _logger.LogDebug("[Allocine] API returned {Count} candidates.", results.Count);
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("[Allocine] API returned {Count} candidates.", results.Count);
+            }
 
             string? bestId = null;
             double bestScore = 0;
@@ -125,16 +134,26 @@ namespace Jellyfin.Plugin.Allocine
                     candidateYear = 0;
                 }
 
-                _logger.LogDebug("[Allocine] Evaluating candidate: '{CandidateTitle}' ({CandidateYear}) [ID: {Id}]", candidateTitle, candidateYear, id);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("[Allocine] Evaluating candidate: '{CandidateTitle}' ({CandidateYear}) [ID: {Id}]", candidateTitle, candidateYear, id);
+                }
 
                 if (Math.Abs(candidateYear - targetYear) > MaxYearDiff)
                 {
-                    _logger.LogDebug("[Allocine] -> Discarded: Year mismatch (Target: {TargetYear}, Candidate: {CandidateYear})", targetYear, candidateYear);
+                    if (_logger.IsEnabled(LogLevel.Debug))
+                    {
+                        _logger.LogDebug("[Allocine] -> Discarded: Year mismatch (Target: {TargetYear}, Candidate: {CandidateYear})", targetYear, candidateYear);
+                    }
+
                     continue;
                 }
 
                 double similarity = CalculateSimilarity(targetTitle, candidateTitle);
-                _logger.LogDebug("[Allocine] -> Similarity score: {Similarity:P2}", similarity);
+                if (_logger.IsEnabled(LogLevel.Debug))
+                {
+                    _logger.LogDebug("[Allocine] -> Similarity score: {Similarity:P2}", similarity);
+                }
 
                 if (similarity > bestScore)
                 {
@@ -150,7 +169,11 @@ namespace Jellyfin.Plugin.Allocine
                 return null;
             }
 
-            _logger.LogInformation("[Allocine] Selected match: '{BestCandidate}' (Score: {Score:P2}) [ID: {Id}]", bestCandidateTitle, bestScore, bestId);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("[Allocine] Selected match: '{BestCandidate}' (Score: {Score:P2}) [ID: {Id}]", bestCandidateTitle, bestScore, bestId);
+            }
+
             return bestId;
         }
 
@@ -232,7 +255,11 @@ namespace Jellyfin.Plugin.Allocine
         private async Task<Dictionary<string, string>?> GetMovieStatsFromPublicPage(string movieId)
         {
             string url = string.Format(CultureInfo.InvariantCulture, PublicMovieUrlFormat, movieId);
-            _logger.LogInformation("[Allocine] Using public movie page fallback for ID {Id}.", movieId);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("[Allocine] Using public movie page fallback for ID {Id}.", movieId);
+            }
+
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.UserAgent.ParseAdd(MobileUserAgent);
             using HttpResponseMessage response = await _httpClient.SendAsync(request).ConfigureAwait(false);

@@ -1,7 +1,7 @@
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace Jellyfin.Plugin.Allocine
 {
@@ -18,8 +18,7 @@ namespace Jellyfin.Plugin.Allocine
         public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
         {
             serviceCollection.AddSingleton<AllocineService>();
-
-            serviceCollection.AddHostedService<TransformationService>();
+            serviceCollection.AddSingleton<IStartupFilter, ScriptInjectionStartupFilter>();
         }
     }
 }
