@@ -21,7 +21,7 @@
 
 ## 📖 Overview
 
-The **Jellyfin Allociné Plugin** automatically fetches and displays movie ratings from **Allociné** (the leading French cinema database) directly onto your Jellyfin movie details page.
+The **Jellyfin Allociné Plugin** fetches and displays movie and series ratings from **Allociné** directly on Jellyfin detail pages.
 
 Unlike standard metadata providers, this plugin injects the specific **"Presse" (Critics)** and **"Spectateurs" (Audience)** scores alongside standard ratings, using the official Allociné visual style. It is designed for French-speaking users who rely on these specific metrics to choose their next movie.
 
@@ -29,11 +29,14 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 
 -   **Dual Ratings:** Displays both _Press_ and _Spectator_ scores.
 -   **Native Look & Feel:** Uses official Allociné icons and specific French number formatting (e.g., `3,5/5`).
--   **Smart Matching:** Uses a robust matching algorithm based on Title and Year to find the correct film.
+-   **Exact Identity Matching:** Resolves Jellyfin IMDb/TMDb identifiers through Wikidata and refuses ambiguous or contradictory mappings.
+-   **Movies and Series:** Supports both Jellyfin movie and series detail pages.
 -   **Resilient Mobile Authentication:** Reproduces the anonymous authentication flow used by the current Allociné Android application and renews it automatically when rejected.
 -   **Safe Public Fallback:** Falls back to the public movie page if the mobile API is unavailable, while refusing Cloudflare challenge or malformed pages.
--   **Idempotent Injection:** Advanced DOM observation logic ensures ratings are injected once and persist correctly during single-page navigation without performance loops.
--   **Auto-Update:** Ratings are fetched dynamically when the page loads.
+-   **Private Persistent Cache:** Stores mappings and ratings in a plugin-owned SQLite database without modifying Jellyfin's databases or native rating fields.
+-   **Adaptive Refresh:** A scheduled task refreshes volatile new releases more frequently, applies retry backoff, and preserves the last known rating during remote failures.
+-   **Resilient Injection:** Handles single-page navigation and late DOM rebuilding while keeping AlloCiné badges between parental classification and Jellyfin's native ratings.
+-   **Cache-First Display:** Serves cached ratings immediately and performs a dynamic lookup only when needed.
 
 ---
 
@@ -52,9 +55,11 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 
 This plugin utilizes a hybrid approach combining a C# backend controller and a JavaScript frontend injection.
 
-### 1. Movie Matching and GraphQL Ratings
+### 1. Exact Media Identity and GraphQL Ratings
 
-The backend first uses Allociné's public autocomplete endpoint to identify the correct movie from its title and release year. It then retrieves the full-precision Press and Audience ratings from the internal **GraphQL API** used by the official Allociné Android application.
+The backend reads the current media item from Jellyfin and uses its IMDb and TMDb identifiers to resolve the corresponding Allociné movie or series identifier through Wikidata. When both identifiers are present, they must resolve consistently. Ambiguous, missing, or contradictory mappings are rejected rather than guessed. A title/year lookup is reserved for an interactive cache miss and still requires an exact, unambiguous result.
+
+Once identity is established, the plugin retrieves the Press and Audience ratings from the **GraphQL API** used by the official Allociné Android application.
 
 ### 2. Anonymous Mobile Authentication
 
@@ -68,7 +73,13 @@ If anonymous registration or GraphQL is unavailable, the backend can extract the
 
 ### 4. Native Jellyfin 12 DOM Injection
 
-The plugin serves a custom JavaScript file (`allocine.js`) and injects it into Jellyfin Web through the Jellyfin 12 ASP.NET request pipeline. No companion transformation plugin or modification of Jellyfin's files is required. The script observes DOM changes to detect movie navigation, fetches data from the C# controller, and dynamically inserts the rating badges.
+The plugin serves a custom JavaScript file (`allocine.js`) and injects it into Jellyfin Web through the Jellyfin 12 ASP.NET request pipeline. No companion transformation plugin or modification of Jellyfin's files is required. The script observes detail-page navigation, calls an authenticated endpoint using only the Jellyfin item ID, and inserts its own badge group without rewriting Jellyfin or third-party extension nodes.
+
+### 5. Persistent Cache and Scheduled Refresh
+
+Ratings and validated IMDb/TMDb-to-Allociné mappings are stored separately in a private SQLite database under Jellyfin's plugin configuration directory. Mapping entries have a long lifetime, while rating freshness varies with the media's age and type. Expired positive ratings remain visible while a refresh runs. Failed attempts use bounded backoff and never erase a previously valid rating.
+
+The built-in Jellyfin scheduled task warms only movies and series with stable IMDb or TMDb identifiers. Wikidata requests are serialized and paced, `Retry-After` is honored for rate limits, and transport failures are not stored as authoritative identity misses.
 
 ---
 

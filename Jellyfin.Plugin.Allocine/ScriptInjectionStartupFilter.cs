@@ -16,7 +16,6 @@ namespace Jellyfin.Plugin.Allocine
     public sealed class ScriptInjectionStartupFilter : IStartupFilter
     {
         private const string ScriptPath = "/Allocine/Script";
-        private const string ScriptTag = "<script src=\"/Allocine/Script\" defer></script>";
 
         private readonly ILogger<ScriptInjectionStartupFilter> _logger;
         private int _loggedOnce;
@@ -54,15 +53,22 @@ namespace Jellyfin.Plugin.Allocine
 
         internal static string InjectScript(string html)
         {
+            return InjectScript(html, string.Empty);
+        }
+
+        internal static string InjectScript(string html, string pathBase)
+        {
             if (html.Contains(ScriptPath, StringComparison.OrdinalIgnoreCase))
             {
                 return html;
             }
 
             int bodyEnd = html.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
+            string normalizedPathBase = pathBase == "/" ? string.Empty : pathBase.TrimEnd('/');
+            string scriptTag = $"<script src=\"{normalizedPathBase}{ScriptPath}?v=0.4.6\" defer></script>";
             return bodyEnd < 0
                 ? html
-                : string.Concat(html.AsSpan(0, bodyEnd), ScriptTag, "\n", html.AsSpan(bodyEnd));
+                : string.Concat(html.AsSpan(0, bodyEnd), scriptTag, "\n", html.AsSpan(bodyEnd));
         }
 
         private async Task InvokeAsync(HttpContext context, Func<Task> next)
@@ -107,7 +113,7 @@ namespace Jellyfin.Plugin.Allocine
                 html = await reader.ReadToEndAsync(context.RequestAborted).ConfigureAwait(false);
             }
 
-            string injected = InjectScript(html);
+            string injected = InjectScript(html, context.Request.PathBase.ToUriComponent());
             if (!ReferenceEquals(injected, html) && Interlocked.Exchange(ref _loggedOnce, 1) == 0)
             {
                 _logger.LogInformation("[Allocine] Client script injected through the Jellyfin 12 request pipeline.");

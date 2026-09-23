@@ -2,6 +2,12 @@ namespace Jellyfin.Plugin.Allocine.Tests;
 
 public sealed class ScriptInjectionStartupFilterTests
 {
+    [Fact]
+    public void AssemblyVersionMatchesInjectedScriptCacheBuster()
+    {
+        Assert.Equal(new Version(0, 4, 6, 0), typeof(ScriptInjectionStartupFilter).Assembly.GetName().Version);
+    }
+
     [Theory]
     [InlineData("/web", true)]
     [InlineData("/web/", true)]
@@ -23,8 +29,22 @@ public sealed class ScriptInjectionStartupFilterTests
         string once = ScriptInjectionStartupFilter.InjectScript(html);
         string twice = ScriptInjectionStartupFilter.InjectScript(once);
 
-        Assert.Contains("<script src=\"/Allocine/Script\" defer></script>\n</body>", once, StringComparison.Ordinal);
+        Assert.Contains("<script src=\"/Allocine/Script?v=0.4.6\" defer></script>\n</body>", once, StringComparison.Ordinal);
         Assert.Equal(once, twice);
+    }
+
+    [Fact]
+    public void InjectScriptUsesConfiguredPathBase()
+    {
+        const string html = "<html><body></body></html>";
+        var method = typeof(ScriptInjectionStartupFilter).GetMethod(
+            "InjectScript",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic,
+            [typeof(string), typeof(string)]);
+
+        Assert.NotNull(method);
+        string injected = Assert.IsType<string>(method.Invoke(null, [html, "/jellyfin"]));
+        Assert.Contains("src=\"/jellyfin/Allocine/Script?v=0.4.6\"", injected, StringComparison.Ordinal);
     }
 
     [Fact]

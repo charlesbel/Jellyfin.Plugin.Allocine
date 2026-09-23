@@ -1,5 +1,11 @@
-using System.ComponentModel.DataAnnotations;
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
+using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Library;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Allocine
@@ -11,15 +17,24 @@ namespace Jellyfin.Plugin.Allocine
     [Route("Allocine")]
     public class AllocineController : ControllerBase
     {
-        private readonly AllocineService _allocineService;
+        private readonly AllocineRatingCacheService _ratingCacheService;
+        private readonly ILibraryManager _libraryManager;
+        private readonly IUserManager _userManager;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AllocineController"/> class.
         /// </summary>
-        /// <param name="allocineService">The Allocine service.</param>
-        public AllocineController(AllocineService allocineService)
+        /// <param name="ratingCacheService">The cache-first rating service.</param>
+        /// <param name="libraryManager">Jellyfin's supported library abstraction.</param>
+        /// <param name="userManager">Jellyfin's user manager.</param>
+        public AllocineController(
+            AllocineRatingCacheService ratingCacheService,
+            ILibraryManager libraryManager,
+            IUserManager userManager)
         {
-            _allocineService = allocineService;
+            _ratingCacheService = ratingCacheService;
+            _libraryManager = libraryManager;
+            _userManager = userManager;
         }
 
         /// <summary>
@@ -44,28 +59,59 @@ namespace Jellyfin.Plugin.Allocine
         }
 
         /// <summary>
-        /// Gets the ratings for a movie.
+        /// Gets the ratings for a movie or series.
         /// </summary>
-        /// <param name="title">The movie title.</param>
-        /// <param name="year">The production year.</param>
+        /// <param name="itemId">The stable Jellyfin item identifier.</param>
+        /// <param name="cancellationToken">The request cancellation token.</param>
         /// <returns>A JSON object containing the ratings.</returns>
         [HttpGet("Ratings")]
+        [Authorize]
         [Produces("application/json")]
-        public async Task<ActionResult<object>> GetRatings([FromQuery, Required] string title, [FromQuery] int year)
+        public async Task<ActionResult<object>> GetRatings(
+            [FromQuery] Guid itemId,
+            CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(title))
+            if (itemId == Guid.Empty)
             {
-                return BadRequest(new { message = "Title is missing" });
+                return BadRequest(new { message = "A valid Jellyfin item ID is required" });
             }
 
-            var ratings = await _allocineService.GetRatings(title, year).ConfigureAwait(false);
+            Guid? currentUserId = GetCurrentUserId(User);
+            if (currentUserId == null)
+            {
+                return Forbid();
+            }
+
+            var currentUser = _userManager.GetUserById(currentUserId.Value);
+            if (currentUser == null)
+            {
+                return Forbid();
+            }
+
+            BaseItem? item = _libraryManager.GetItemById<BaseItem>(itemId, currentUser);
+            if (item == null || !AllocineRefreshTask.TryCreateRequest(item, out AllocineRatingsRequest request))
+            {
+                return NotFound(new { message = "Supported Jellyfin media item not found" });
+            }
+
+            var ratings = await _ratingCacheService
+                .GetRatingsAsync(request, cancellationToken)
+                .ConfigureAwait(false);
 
             if (ratings == null)
             {
-                return NotFound(new { message = "Movie not found" });
+                return NotFound(new { message = "Media not found" });
             }
 
             return Ok(ratings);
+        }
+
+        internal static Guid? GetCurrentUserId(ClaimsPrincipal principal)
+        {
+            string? value = principal.Claims
+                .FirstOrDefault(claim => claim.Type.Equals("Jellyfin-UserId", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            return Guid.TryParse(value, out Guid userId) ? userId : null;
         }
     }
 }

@@ -1,16 +1,23 @@
 ---
 name: "Allociné Ratings"
 guid: "93a5b760-3774-43b3-8d99-09a473434680"
-version: "0.2.0.0"
+version: "0.4.6.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 overview: "Ratings from Allociné for Jellyfin."
 description: >
-  Displays press and spectator ratings from Allociné on movie detail pages.
+  Displays press and spectator ratings from Allociné on movie and series detail pages.
 
 category: "Metadata"
 owner: "charlesbel"
 artifacts:
   - "Jellyfin.Plugin.Allocine.dll"
 changelog: |-
-  - Add compatibility with Jellyfin 12 and .NET 10.
+  - Match movies and series through exact IMDb/TMDb identifiers via Wikidata and reject ambiguous or contradictory mappings.
+  - Cache validated identity mappings separately from ratings in a private, transactional SQLite database.
+  - Serve stale positive ratings immediately while applying adaptive freshness and failure backoff.
+  - Add an authenticated Jellyfin scheduled task that refreshes only eligible media with stable provider identifiers.
+  - Pace and serialize Wikidata traffic, honor bounded 429 retries, and use a Wikimedia-compliant User-Agent.
+  - Preserve Jellyfin's native rating fields and enforce per-user media access on the ratings endpoint.
+  - Keep AlloCiné badges stable between parental classification and native ratings, including with Jellyfin Enhanced.
+  - Coalesce frontend and backend work, guard SPA navigation races, and bound retries after persistent failures.
