@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-and-publish:
+    if: ${{ !contains(github.event.release.body, '<!-- historical-binary-backfill -->') }}
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout Code
