@@ -2,6 +2,7 @@
     {
         "guid": "93a5b760-3774-43b3-8d99-09a473434680",
         "name": "Allocin\u00e9 Ratings",
+        "imageUrl": "https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/img/allocine-plugin-logo.png",
         "description": "Displays press and spectator ratings from Allocin\u00e9 on movie and series detail pages.\n",
         "overview": "Ratings from Allocin\u00e9 for Jellyfin.",
         "owner": "charlesbel",
