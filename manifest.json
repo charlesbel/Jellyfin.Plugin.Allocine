@@ -16,6 +16,70 @@
                 "timestamp": "2026-09-23T17:19:47Z"
             },
             {
+                "version": "0.4.5.0",
+                "changelog": "- Restore AlloCin\u00e9 ratings when Jellyfin Enhanced rebuilds the media-information block.\n- Revalidate through the server cache without retaining a permanent browser cache.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.5/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "b39ae5af07c774e9aa7d19ea21ffc3f8",
+                "timestamp": "2026-09-23T16:50:00Z"
+            },
+            {
+                "version": "0.4.4.0",
+                "changelog": "- Match movies and series through exact IMDb/TMDb identifiers when available.\n- Fail closed on ambiguous matches and support Jellyfin 12 series pages.\n- Restore AlloCin\u00e9 badges before Jellyfin's native ratings.\n- Cache ratings in a private SQLite database and refresh them through a scheduled Jellyfin task.\n- Limit scheduled preloading to media with stable IMDb or TMDb identifiers.\n- Add adaptive freshness, failed-lookup backoff, stale-first display, and stable badge placement.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.4/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "47f3040a92f9398bbd1b1a84492582dd",
+                "timestamp": "2026-09-23T15:39:35Z"
+            },
+            {
+                "version": "0.4.3.0",
+                "changelog": "- Cache exact provider-ID mappings separately from ratings.\n- Add long-lived mapping freshness and private SQLite recovery.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.3/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "0046ddfa4124d8965fc60de30919373b",
+                "timestamp": "2026-09-23T15:04:00Z"
+            },
+            {
+                "version": "0.4.2.0",
+                "changelog": "- Match movies and series through exact IMDb/TMDb identifiers when available.\n- Fail closed on ambiguous matches and support Jellyfin 12 series pages.\n- Restore AlloCin\u00e9 badges before Jellyfin's native ratings.\n- Cache ratings in a private SQLite database and refresh them through a scheduled Jellyfin task.\n- Limit scheduled preloading to media with stable IMDb or TMDb identifiers.\n- Add adaptive freshness, failed-lookup backoff, stale-first display, and stable badge placement.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.2/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "28168047c0e6221fff60aff541c3efc7",
+                "timestamp": "2026-09-23T14:20:51Z"
+            },
+            {
+                "version": "0.4.1.0",
+                "changelog": "- Restrict scheduled preloading to media with stable IMDb or TMDb identifiers.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.1/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "c7dee26b7c585f0804435e4dd8d92285",
+                "timestamp": "2026-09-23T14:27:02Z"
+            },
+            {
+                "version": "0.4.0.0",
+                "changelog": "- Add a Jellyfin scheduled task to preload AlloCin\u00e9 ratings for library items.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.0/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "8a5a8df1d88602a22d96d6a906f31343",
+                "timestamp": "2026-09-23T13:17:32Z"
+            },
+            {
+                "version": "0.3.1.0",
+                "changelog": "- Place AlloCin\u00e9 ratings before Jellyfin native ratings on item detail pages.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.3.1/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "b18546b1873fc71d4dabfd904e400a51",
+                "timestamp": "2026-09-23T13:07:10Z"
+            },
+            {
+                "version": "0.3.0.0",
+                "changelog": "- Move AlloCin\u00e9 ratings to the end of the primary media-information row for a more consistent layout.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.3.0/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "65ffe612ca594ab37de46c881968615d",
+                "timestamp": "2026-09-23T11:54:55Z"
+            },
+            {
                 "version": "0.2.0.0",
                 "changelog": "- Add compatibility with Jellyfin 12 and .NET 10.",
                 "targetAbi": "12.0.0.0",
