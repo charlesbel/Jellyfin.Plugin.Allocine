@@ -12,8 +12,8 @@
                 "changelog": "- Match movies and series through exact IMDb/TMDb identifiers via Wikidata and reject ambiguous or contradictory mappings.\n- Cache validated identity mappings separately from ratings in a private, transactional SQLite database.\n- Serve stale positive ratings immediately while applying adaptive freshness and failure backoff.\n- Add an authenticated Jellyfin scheduled task that refreshes only eligible media with stable provider identifiers.\n- Pace and serialize Wikidata traffic, honor bounded 429 retries, and use a Wikimedia-compliant User-Agent.\n- Preserve Jellyfin's native rating fields and enforce per-user media access on the ratings endpoint.\n- Keep AlloCin\u00e9 badges stable between parental classification and native ratings, including with Jellyfin Enhanced.\n- Coalesce frontend and backend work, guard SPA navigation races, and bound retries after persistent failures.",
                 "targetAbi": "12.0.0.0",
                 "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.4.6/Jellyfin.Plugin.Allocine.zip",
-                "checksum": "d08a63fed293d261482cdf2a8d4cf2ec",
-                "timestamp": "2026-09-23T17:19:47Z"
+                "checksum": "7010f0cb30e92691bef68c5f5e39f332",
+                "timestamp": "2026-09-24T00:34:49Z"
             },
             {
                 "version": "0.4.5.0",
