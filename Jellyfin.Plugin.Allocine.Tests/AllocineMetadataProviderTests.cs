@@ -503,7 +503,7 @@ public sealed class AllocineMetadataProviderTests : IDisposable
             CancellationToken cancellationToken)
         {
             RatingCalls++;
-            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string>(Ratings));
+            return Task.FromResult<Dictionary<string, string>?>(AllocineEditorialFlags.WithDefaults(Ratings));
         }
 
         public async Task<Dictionary<string, string>?> GetRatingsAsync(

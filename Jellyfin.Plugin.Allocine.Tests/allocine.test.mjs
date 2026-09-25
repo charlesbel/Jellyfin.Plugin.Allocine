@@ -6,7 +6,7 @@ import vm from 'node:vm';
 const scriptPath = new URL('../Jellyfin.Plugin.Allocine/allocine.js', import.meta.url);
 const source = await readFile(scriptPath, 'utf8');
 
-function createHarness(item) {
+function createHarness(item, ratings = { presse: '3.8', public: '4.4' }) {
     const badges = [];
     const nativeRating = { id: 'native-rating' };
     const visualOrder = [nativeRating];
@@ -63,19 +63,26 @@ function createHarness(item) {
             return item;
         },
         getUrl: (path, params) => {
-            assert.equal(path, 'Allocine/Ratings');
-            apiParams = params;
-            return 'http://jellyfin.test/Allocine/Ratings';
+            if (path === 'Allocine/Ratings') {
+                apiParams = params;
+                return 'http://jellyfin.test/Allocine/Ratings';
+            }
+            return `http://jellyfin.test/${path}`;
         },
         getJSON: async () => {
             getJsonCalls += 1;
-            return { presse: '3.8', public: '4.4' };
+            return ratings;
         },
     };
     const document = {
         body: {},
         head: { appendChild() {} },
-        createElement: () => ({ style: {}, children: [], appendChild(child) { this.children.push(child); } }),
+        createElement: tag => ({
+            tagName: String(tag || 'div').toUpperCase(),
+            style: {},
+            children: [],
+            appendChild(child) { this.children.push(child); },
+        }),
         getElementById: () => ({}),
         querySelector: selector => selector === '#itemDetailPage:not(.hide)' ? detailPage : null,
         querySelectorAll: () => [],
@@ -125,6 +132,30 @@ test('series item ID is sent to the authenticated plugin endpoint', async () => 
     assert.deepEqual(
         harness.visualOrder.map(element => element.textContent ?? element.id),
         ['3,8/5', '4,4/5', 'native-rating']);
+});
+
+test('editorial badges render after press and spectator ratings', async () => {
+    const harness = createHarness({
+        Id: 'intouchables',
+        Type: 'Movie',
+        Name: 'Intouchables',
+        OriginalTitle: 'Intouchables',
+        ProductionYear: 2011,
+        ProviderIds: { Imdb: 'tt1675434', Tmdb: '77314' },
+    }, { presse: '3.7', public: '4.4', classiques: '1', clubAime: '1' });
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    assert.equal(harness.badges.length, 4);
+    assert.deepEqual(harness.badges.map(badge => badge.textContent).filter(Boolean), ['3,7/5', '4,4/5']);
+    assert.equal(harness.badges[2].className.includes('allocine-editorial-badge'), true);
+    assert.equal(harness.badges[2].title, 'Classiques AlloCiné');
+    assert.match(harness.badges[2].children[0].src, /Allocine\/Badge\/classiques/);
+    assert.equal(harness.badges[3].title, 'Le club Aime');
+    assert.match(harness.badges[3].children[0].src, /Allocine\/Badge\/club-aime/);
+    assert.deepEqual(
+        harness.visualOrder.map(element => element.textContent || element.title || element.id),
+        ['3,7/5', '4,4/5', 'Classiques AlloCiné', 'Le club Aime', 'native-rating']);
 });
 
 function deferred() {

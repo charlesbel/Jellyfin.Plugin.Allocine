@@ -180,6 +180,86 @@ public sealed class AllocineServiceTests
             "https://www.allocine.fr/series/ficheserie_gen_cserie=25762.html",
             handler.Requests[^1].RequestUri?.AbsoluteUri);
         Assert.DoesNotContain(handler.Requests, request => request.RequestUri?.Host == "graph.allocine.fr");
+        Assert.Equal("0", ratings["classiques"]);
+        Assert.Equal("0", ratings["clubAime"]);
+    }
+
+    [Fact]
+    public async Task GetRatingsReadsMovieEditorialFlagsFromGraphQl()
+    {
+        const string wikidataSearch = """
+            {"query":{"search":[{"title":"Q106479"}]}}
+            """;
+        const string wikidataEntity = """
+            {"entities":{"Q106479":{"claims":{"P345":[{"mainsnak":{"datavalue":{"value":"tt1675434"}}}],"P4947":[{"mainsnak":{"datavalue":{"value":"77314"}}}],"P1265":[{"mainsnak":{"datavalue":{"value":"182745"}}}]}}}}
+            """;
+        var handler = new QueueHttpMessageHandler(
+            JsonResponse(HttpStatusCode.OK, wikidataSearch),
+            JsonResponse(HttpStatusCode.OK, wikidataEntity),
+            JsonResponse(HttpStatusCode.OK, wikidataSearch),
+            JsonResponse(HttpStatusCode.OK, wikidataEntity),
+            CheckinResponse(1, 2),
+            TextResponse(HttpStatusCode.OK, "token=fcm-token"),
+            JsonResponse(
+                HttpStatusCode.OK,
+                """{"data":{"movie":{"stats":{"pressReview":{"score":3.68},"userRating":{"score":4.37}},"flags":{"isIncontestable":true,"isClub300Approved":true,"isClubApproved":{"club300":true}}}}}"""));
+        using var httpClient = new HttpClient(handler);
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+
+        Dictionary<string, string>? ratings = await service.GetRatings(
+            "Intouchables",
+            "The Intouchables",
+            2011,
+            "Movie",
+            "tt1675434",
+            "77314");
+
+        Assert.NotNull(ratings);
+        Assert.Equal("3.68", ratings["presse"]);
+        Assert.Equal("4.37", ratings["public"]);
+        Assert.Equal("1", ratings["classiques"]);
+        Assert.Equal("1", ratings["clubAime"]);
+        CapturedRequest graphRequest = Assert.Single(handler.Requests, request => request.RequestUri?.Host == "graph.allocine.fr");
+        Assert.Contains("isIncontestable", graphRequest.Body, StringComparison.Ordinal);
+        Assert.Contains("isClub300Approved", graphRequest.Body, StringComparison.Ordinal);
+        Assert.Contains("isClubApproved", graphRequest.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetRatingsReadsEditorialBadgesFromSeriesPublicPage()
+    {
+        const string wikidataSearch = """
+            {"query":{"search":[{"title":"Q96407897"}]}}
+            """;
+        const string wikidataEntity = """
+            {"entities":{"Q96407897":{"claims":{"P345":[{"mainsnak":{"datavalue":{"value":"tt10986410"}}}],"P4983":[{"mainsnak":{"datavalue":{"value":"97546"}}}],"P1267":[{"mainsnak":{"datavalue":{"value":"25762"}}}]}}}}
+            """;
+        const string html = """
+            <div class="rating-item-content"><span class="rating-title"> Spectateurs </span>
+            <span class="stareval-note">4,4</span></div>
+            <span class="button-club-300" data-allocine-tracking-position-name="gelule_clubaime"></span>
+            """;
+        var handler = new QueueHttpMessageHandler(
+            JsonResponse(HttpStatusCode.OK, wikidataSearch),
+            JsonResponse(HttpStatusCode.OK, wikidataEntity),
+            JsonResponse(HttpStatusCode.OK, wikidataSearch),
+            JsonResponse(HttpStatusCode.OK, wikidataEntity),
+            TextResponse(HttpStatusCode.OK, html));
+        using var httpClient = new HttpClient(handler);
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+
+        Dictionary<string, string>? ratings = await service.GetRatings(
+            "Ted Lasso",
+            "Ted Lasso",
+            2020,
+            "Series",
+            "tt10986410",
+            "97546");
+
+        Assert.NotNull(ratings);
+        Assert.Equal("4.4", ratings["public"]);
+        Assert.Equal("0", ratings["classiques"]);
+        Assert.Equal("1", ratings["clubAime"]);
     }
 
     [Fact]

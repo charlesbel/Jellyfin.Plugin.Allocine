@@ -51,7 +51,37 @@ namespace Jellyfin.Plugin.Allocine
                 ratings[key] = score.ToString("0.##", CultureInfo.InvariantCulture);
             }
 
-            return ratings.Count == 0 ? null : ratings;
+            bool classiques = ContainsEditorialMarker(html, "button-classiques-gold", "gelule_classiqueor");
+            bool clubAime = ContainsEditorialMarker(html, "button-club-300", "gelule_clubaime");
+            if (ratings.Count == 0 && !classiques && !clubAime)
+            {
+                return null;
+            }
+
+            AllocineEditorialFlags.Apply(ratings, classiques, clubAime);
+            return ratings;
+        }
+
+        private static bool ContainsEditorialMarker(string html, string className, string trackingName)
+        {
+            return ClassAttributeContains(html, className)
+                || TrackingAttributeContains(html, trackingName);
+        }
+
+        private static bool ClassAttributeContains(string html, string className)
+        {
+            return Regex.IsMatch(
+                html,
+                @"class\s*=\s*([""'])[^""']*\b" + Regex.Escape(className) + @"\b[^""']*\1",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+
+        private static bool TrackingAttributeContains(string html, string trackingName)
+        {
+            return Regex.IsMatch(
+                html,
+                @"data-allocine-tracking-position-name\s*=\s*([""'])" + Regex.Escape(trackingName) + @"\1",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 
         [GeneratedRegex(

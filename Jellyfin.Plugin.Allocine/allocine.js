@@ -172,10 +172,58 @@
             group.appendChild(element);
         });
 
-        if (ratingsToShow.length > 0) {
+        if (isEditorialPresent(data.classiques)) {
+            group.appendChild(createEditorialBadge("classiques", "Classiques AlloCiné"));
+        }
+        if (isEditorialPresent(data.clubAime)) {
+            group.appendChild(createEditorialBadge("club-aime", "Le club Aime"));
+        }
+
+        if (group.children.length > 0) {
             targetElement.appendChild(group);
             ensureRatingPlacement(targetElement);
         }
+    }
+
+    function isEditorialPresent(value) {
+        return value === "1" || value === 1 || value === true || value === "true";
+    }
+
+    function badgeUrl(name) {
+        const script = document.querySelector("script[src*=\"Allocine/Script\"]");
+        const src = script && script.src;
+        if (src) {
+            return src.replace(/Script(\?.*)?$/, "Badge/" + name);
+        }
+        if (typeof ApiClient !== "undefined" && typeof ApiClient.getUrl === "function") {
+            return ApiClient.getUrl("Allocine/Badge/" + name);
+        }
+        return "";
+    }
+
+    function createEditorialBadge(name, label) {
+        const element = document.createElement("div");
+        element.className = "mediaInfoItem allocine-custom-rating allocine-editorial-badge";
+        element.title = label;
+        if (typeof element.setAttribute === "function") {
+            element.setAttribute("aria-label", label);
+        }
+        Object.assign(element.style, {
+            display: "inline-flex",
+            alignItems: "center",
+            marginRight: "1em",
+            height: "1.25em",
+        });
+        const img = document.createElement("img");
+        img.src = badgeUrl(name);
+        img.alt = label;
+        Object.assign(img.style, {
+            display: "block",
+            height: "1.25em",
+            width: "auto",
+        });
+        element.appendChild(img);
+        return element;
     }
 
     function findDirectChild(targetElement, selector) {

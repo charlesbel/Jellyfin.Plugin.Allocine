@@ -27,6 +27,44 @@ public sealed class AllocineRatingsParserTests
         Assert.NotNull(ratings);
         Assert.Equal("3.6", ratings["presse"]);
         Assert.Equal("4.5", ratings["public"]);
+        Assert.Equal("0", ratings["classiques"]);
+        Assert.Equal("0", ratings["clubAime"]);
+    }
+
+    [Fact]
+    public void ParseExtractsClassiquesAndClubAimeBadgesFromPublicMoviePage()
+    {
+        const string html = RatingsHtml + """
+            <div class="gelule-holder">
+              <span class="button-classiques-gold" data-allocine-tracking-position-name="gelule_classiqueor"></span>
+              <span class="button-club-300" data-allocine-tracking-position-name="gelule_clubaime"></span>
+            </div>
+            """;
+
+        Dictionary<string, string>? ratings = AllocineRatingsParser.Parse(html);
+
+        Assert.NotNull(ratings);
+        Assert.Equal("1", ratings["classiques"]);
+        Assert.Equal("1", ratings["clubAime"]);
+        Assert.Equal("3.6", ratings["presse"]);
+    }
+
+    [Fact]
+    public void ParseReturnsEditorialBadgesEvenWithoutNumericRatings()
+    {
+        const string html = """
+            <div class="gelule-holder">
+              <span class="button-classiques-gold"></span>
+            </div>
+            """;
+
+        Dictionary<string, string>? ratings = AllocineRatingsParser.Parse(html);
+
+        Assert.NotNull(ratings);
+        Assert.Equal("1", ratings["classiques"]);
+        Assert.Equal("0", ratings["clubAime"]);
+        Assert.False(ratings.ContainsKey("presse"));
+        Assert.False(ratings.ContainsKey("public"));
     }
 
     [Fact]
@@ -43,6 +81,24 @@ public sealed class AllocineRatingsParserTests
         Assert.NotNull(ratings);
         Assert.False(ratings.ContainsKey("presse"));
         Assert.Equal("4.5", ratings["public"]);
+    }
+
+    [Fact]
+    public void ParseDoesNotTreatSharedCssSelectorsAsEditorialPills()
+    {
+        const string html = RatingsHtml + """
+            <style>
+            .button-classiques-gold{background:url(https://assets.allocine.fr/skin/img/classiques-gold-pill.svg)}
+            .button-club-300{background:url(https://assets.allocine.fr/skin/img/club-allocine-pill.svg)}
+            </style>
+            """;
+
+        Dictionary<string, string>? ratings = AllocineRatingsParser.Parse(html);
+
+        Assert.NotNull(ratings);
+        Assert.Equal("0", ratings["classiques"]);
+        Assert.Equal("0", ratings["clubAime"]);
+        Assert.Equal("3.6", ratings["presse"]);
     }
 
     [Theory]
