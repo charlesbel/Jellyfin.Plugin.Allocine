@@ -9,5 +9,6 @@ namespace Jellyfin.Plugin.Allocine
         Dictionary<string, string>? Ratings,
         DateTimeOffset FetchedAt,
         DateTimeOffset? LastAttemptAt,
-        int ConsecutiveFailures);
+        int ConsecutiveFailures,
+        string? AllocineId = null);
 }

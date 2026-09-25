@@ -19,8 +19,10 @@ namespace Jellyfin.Plugin.Allocine
         {
             serviceCollection.AddSingleton<AllocineService>();
             serviceCollection.AddSingleton<IAllocineRatingProvider>(static services => services.GetRequiredService<AllocineService>());
+            serviceCollection.AddSingleton<IAllocineMappingProvider>(static services => services.GetRequiredService<AllocineService>());
             serviceCollection.AddSingleton<AllocineRatingStore>();
             serviceCollection.AddSingleton<AllocineRatingCacheService>();
+            serviceCollection.AddSingleton<AllocineMetadataProvider>();
             serviceCollection.AddTransient<AllocineRefreshTask>();
             serviceCollection.AddSingleton<IStartupFilter, ScriptInjectionStartupFilter>();
         }

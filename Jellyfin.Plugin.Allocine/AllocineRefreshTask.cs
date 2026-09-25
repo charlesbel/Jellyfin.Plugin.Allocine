@@ -177,7 +177,8 @@ namespace Jellyfin.Plugin.Allocine
                 item.OriginalTitle,
                 year,
                 item.GetProviderId(MetadataProvider.Imdb),
-                item.GetProviderId(MetadataProvider.Tmdb));
+                item.GetProviderId(MetadataProvider.Tmdb),
+                item.GetProviderId(AllocineProviderNames.Key));
             return true;
         }
 

@@ -231,7 +231,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         await migrated.OpenAsync();
         await using SqliteCommand version = migrated.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(4L, await version.ExecuteScalarAsync());
+        Assert.Equal(5L, await version.ExecuteScalarAsync());
     }
 
     [Theory]
@@ -272,7 +272,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         Assert.Equal(0L, await failures.ExecuteScalarAsync());
         await using SqliteCommand version = migrated.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(4L, await version.ExecuteScalarAsync());
+        Assert.Equal(5L, await version.ExecuteScalarAsync());
     }
 
     [Fact]
@@ -376,7 +376,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         {
             await connection.OpenAsync();
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = "PRAGMA user_version=5;";
+            command.CommandText = "PRAGMA user_version=6;";
             await command.ExecuteNonQueryAsync();
         }
 
@@ -455,12 +455,23 @@ public sealed class AllocineRatingCacheTests : IDisposable
 
         public int RatingCalls { get; private set; }
 
-        public Task<string?> ResolveAllocineIdAsync(
+        public Task<AllocineResolvedIdentity> ResolveIdentityAsync(
             AllocineRatingsRequest request,
+            bool allowTitleYearFallback,
             CancellationToken cancellationToken)
         {
             ResolveCalls++;
-            return Task.FromResult<string?>(allocineId);
+            return Task.FromResult(new AllocineResolvedIdentity(
+                allocineId,
+                AllocineResolutionSource.ExactIdentifiers,
+                false));
+        }
+
+        public async Task<string?> ResolveAllocineIdAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            return (await ResolveIdentityAsync(request, true, cancellationToken)).AllocineId;
         }
 
         public Task<Dictionary<string, string>?> GetRatingsByAllocineIdAsync(
