@@ -23,8 +23,6 @@ namespace Jellyfin.Plugin.Allocine
         private const string GraphUrl = "https://graph.allocine.fr/v1/mobile/";
         private const string MobileUserAgent = "androidapp/9.10.18";
         private static readonly CompositeFormat SearchUrlFormat = CompositeFormat.Parse("https://www.allocine.fr/_/autocomplete/{0}");
-        private static readonly CompositeFormat PublicMovieUrlFormat = CompositeFormat.Parse("https://www.allocine.fr/film/fichefilm_gen_cfilm={0}.html");
-        private static readonly CompositeFormat PublicSeriesUrlFormat = CompositeFormat.Parse("https://www.allocine.fr/series/ficheserie_gen_cserie={0}.html");
         private static readonly CompositeFormat WikidataSearchUrlFormat = CompositeFormat.Parse("https://www.wikidata.org/w/api.php?action=query&list=search&srnamespace=0&format=json&srsearch={0}");
         private static readonly CompositeFormat WikidataEntityUrlFormat = CompositeFormat.Parse("https://www.wikidata.org/wiki/Special:EntityData/{0}.json");
 
@@ -110,6 +108,19 @@ namespace Jellyfin.Plugin.Allocine
             AllocineRatingsRequest request,
             CancellationToken cancellationToken)
         {
+            AllocineResolvedIdentity resolved = await ResolveIdentityAsync(
+                request,
+                allowTitleYearFallback: true,
+                cancellationToken).ConfigureAwait(false);
+            return resolved.AllocineId;
+        }
+
+        /// <inheritdoc />
+        public async Task<AllocineResolvedIdentity> ResolveIdentityAsync(
+            AllocineRatingsRequest request,
+            bool allowTitleYearFallback,
+            CancellationToken cancellationToken)
+        {
             try
             {
                 bool isSeries = request.MediaType.Equals("Series", StringComparison.OrdinalIgnoreCase);
@@ -130,11 +141,23 @@ namespace Jellyfin.Plugin.Allocine
                 if (resolution.IsConflict)
                 {
                     _logger.LogWarning("[Allocine] Conflicting external identifiers; refusing to select a media.");
-                    return null;
+                    return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, true);
                 }
 
-                string? allocineId = resolution.Id;
-                allocineId ??= await SearchMedia(
+                if (resolution.Id != null)
+                {
+                    return new AllocineResolvedIdentity(
+                        resolution.Id,
+                        AllocineResolutionSource.ExactIdentifiers,
+                        false);
+                }
+
+                if (!allowTitleYearFallback)
+                {
+                    return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, false);
+                }
+
+                string? allocineId = await SearchMedia(
                     request.Title,
                     request.OriginalTitle,
                     request.Year,
@@ -143,9 +166,10 @@ namespace Jellyfin.Plugin.Allocine
                 if (allocineId == null)
                 {
                     _logger.LogWarning("[Allocine] No valid match found for '{Title}' ({Year})", request.Title, request.Year);
+                    return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, false);
                 }
 
-                return allocineId;
+                return new AllocineResolvedIdentity(allocineId, AllocineResolutionSource.TitleYear, false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -154,7 +178,7 @@ namespace Jellyfin.Plugin.Allocine
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[Allocine] Error resolving exact AlloCiné identity");
-                return null;
+                return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, false);
             }
         }
 
@@ -229,7 +253,7 @@ namespace Jellyfin.Plugin.Allocine
 
                     _nextWikidataRequestAt = DateTimeOffset.UtcNow + _wikidataPacing;
                     using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.4.6 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
+                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.0 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
                     HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 1)
                     {
@@ -578,10 +602,9 @@ namespace Jellyfin.Plugin.Allocine
             bool isSeries,
             CancellationToken cancellationToken)
         {
-            string url = string.Format(
-                CultureInfo.InvariantCulture,
-                isSeries ? PublicSeriesUrlFormat : PublicMovieUrlFormat,
-                mediaId);
+            string url = isSeries
+                ? AllocineProviderNames.SeriesUrl(mediaId)
+                : AllocineProviderNames.MovieUrl(mediaId);
             if (_logger.IsEnabled(LogLevel.Information))
             {
                 _logger.LogInformation("[Allocine] Using public {MediaType} page for ID {Id}.", isSeries ? "series" : "movie", mediaId);

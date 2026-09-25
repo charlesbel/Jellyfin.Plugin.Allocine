@@ -27,7 +27,9 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 
 ### ✨ Key Features
 
--   **Dual Ratings:** Displays both _Press_ and _Spectator_ scores.
+-   **Native AlloCiné Identity:** Adds an AlloCiné ID field and a clickable AlloCiné link on movies and series, without becoming a full remote metadata fetcher.
+-   **Exact Writes Only:** Optionally writes `ProviderIds["Allocine"]` after an exact IMDb or TMDb match. Title/year fallback remains display-only.
+-   **Dual Ratings:** Displays both _Press_ and _Spectator_ scores from a private plugin database. These scores never overwrite Jellyfin's Community, Critic, Custom, or Official ratings.
 -   **Native Look & Feel:** Uses official Allociné icons and specific French number formatting (e.g., `3,5/5`).
 -   **Exact Identity Matching:** Resolves Jellyfin IMDb/TMDb identifiers through Wikidata and refuses ambiguous or contradictory mappings.
 -   **Movies and Series:** Supports both Jellyfin movie and series detail pages.
@@ -58,6 +60,8 @@ This plugin utilizes a hybrid approach combining a C# backend controller and a J
 ### 1. Exact Media Identity and GraphQL Ratings
 
 The backend reads the current media item from Jellyfin and uses its IMDb and TMDb identifiers to resolve the corresponding Allociné movie or series identifier through Wikidata. When both identifiers are present, they must resolve consistently. Ambiguous, missing, or contradictory mappings are rejected rather than guessed. A title/year lookup is reserved for an interactive cache miss and still requires an exact, unambiguous result.
+
+A post-refresh custom metadata provider can persist a proven AlloCiné identifier as `ProviderIds["Allocine"]` and expose the matching public page as a native external link. That write is optional, never uses a title/year fallback, and never copies AlloCiné scores into Jellyfin rating fields.
 
 Once identity is established, the plugin retrieves the Press and Audience ratings from the **GraphQL API** used by the official Allociné Android application.
 

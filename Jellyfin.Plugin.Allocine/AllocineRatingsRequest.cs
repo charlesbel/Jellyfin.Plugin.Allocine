@@ -10,5 +10,6 @@ namespace Jellyfin.Plugin.Allocine
         string? OriginalTitle,
         int Year,
         string? ImdbId,
-        string? TmdbId);
+        string? TmdbId,
+        string? AllocineId = null);
 }

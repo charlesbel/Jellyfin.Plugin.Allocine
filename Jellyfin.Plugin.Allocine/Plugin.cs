@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
@@ -10,7 +11,7 @@ namespace Jellyfin.Plugin.Allocine
     /// <summary>
     /// The main plugin class.
     /// </summary>
-    public class Plugin : BasePlugin<BasePluginConfiguration>, IHasWebPages
+    public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Plugin"/> class.
@@ -41,7 +42,17 @@ namespace Jellyfin.Plugin.Allocine
         /// <inheritdoc />
         public IEnumerable<PluginPageInfo> GetPages()
         {
-            return new List<PluginPageInfo>();
+            return
+            [
+                new PluginPageInfo
+                {
+                    Name = Name,
+                    EmbeddedResourcePath = string.Format(
+                        CultureInfo.InvariantCulture,
+                        "{0}.Configuration.configPage.html",
+                        GetType().Namespace),
+                },
+            ];
         }
     }
 }

@@ -5,5 +5,6 @@ namespace Jellyfin.Plugin.Allocine
     internal sealed record AllocineMappingEntry(
         string IdentityKey,
         string AllocineId,
-        DateTimeOffset ResolvedAt);
+        DateTimeOffset ResolvedAt,
+        AllocineResolutionSource Source = AllocineResolutionSource.ExactIdentifiers);
 }
