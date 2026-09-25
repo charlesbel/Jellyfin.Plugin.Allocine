@@ -14,35 +14,46 @@
 </p>
 
 <p align="center">
-  <strong>Les notes Presse et Spectateurs d'AlloCiné, directement sur vos fiches Jellyfin.</strong>
+  <strong>Seamlessly integrate French Allociné ratings into your Jellyfin instance.</strong>
 </p>
 
 ---
 
-## Présentation
+## 📖 Overview
 
-Le plugin affiche les notes **Presse** et **Spectateurs** d'AlloCiné sur les pages films et séries, avec les icônes officielles (par exemple `3,5/5`).
+The plugin shows AlloCiné **Press** and **Spectator** scores on movie and series pages, with the official icons (for example `3,5/5`).
 
-Il peut aussi ajouter un identifiant AlloCiné et un lien vers la fiche. Vous pouvez le taper vous-même, ou laisser le plugin le remplir à partir d'IMDb / TMDb. Un identifiant que vous avez saisi n'est jamais écrasé.
+It can also add an AlloCiné ID and a link to the AlloCiné page. You can type the ID yourself, or let the plugin fill it from IMDb / TMDb. An ID you typed is never overwritten.
 
-Les notes AlloCiné restent des badges à part : elles ne remplacent pas les notes Jellyfin, Rotten Tomatoes ou autres.
+AlloCiné scores stay as their own badges. They do not replace Jellyfin, Rotten Tomatoes, or other ratings.
 
-Ce plugin nécessite **Jellyfin Server 12**. Les anciennes versions restent disponibles pour Jellyfin 10.
+### ✨ Key Features
+
+-   **Press and Spectator scores** with official AlloCiné icons and French number formatting.
+-   **Optional AlloCiné ID and link** on movies and series.
+-   **Never overwrites an ID you typed.**
+-   **Movies and series** detail pages.
 
 ---
 
-## Captures d'écran
+## 🖼️ Screenshots
 
-|            Avant             |         Après          |
+|            Before             |         After          |
 | :---------------------------: | :--------------------: |
-| _Interface Jellyfin standard_ | _Avec le plugin Allociné_ |
+| _Standard Jellyfin Interface_ | _With Allociné Plugin_ |
 |  ![Before](img/without.png)   | ![After](img/with.png) |
 
-> Les notes apparaissent à côté de la classification ou de la durée, sur la fiche du film ou de la série.
+> _Note: The ratings appear next to the official certification or duration on the movie details page._
 
 ---
 
-## Installation
+## ⚠️ Prerequisites
+
+This release requires **Jellyfin Server 12**. Older plugin releases remain available for Jellyfin 10.
+
+---
+
+## 🚀 Installation
 
 ### Option 1: Automatic Install (Repository)
 
@@ -60,13 +71,13 @@ Ce plugin nécessite **Jellyfin Server 12**. Les anciennes versions restent disp
 1.  Download the latest `.dll` from the [Releases Page](https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases).
 2.  Place the `Jellyfin.Plugin.Allocine.dll` file into your Jellyfin plugins folder:
     -   **Linux:** `/var/lib/jellyfin/plugins/Allocine/`
-    -   **Windows:** `C:\\ProgramData\\Jellyfin\\Server\\plugins\\Allocine\\`
+    -   **Windows:** `C:\ProgramData\Jellyfin\Server\plugins\Allocine\`
     -   **Docker:** `/config/plugins/Allocine/`
 3.  **Restart your Jellyfin server.**
 
 ---
 
-## Build from Source
+## 🛠️ Build from Source
 
 If you want to contribute or build the plugin yourself:
 
@@ -88,7 +99,7 @@ If you want to contribute or build the plugin yourself:
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -100,12 +111,12 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## License
+## ⚖️ License
 
 Distributed under the **GNU General Public License v3.0**. See `LICENSE` for more information.
 
 ---
 
-## Disclaimer
+## 📝 Disclaimer
 
 This plugin is not officially affiliated with, associated with, authorized by, endorsed by, or in any way officially connected with **Allociné** or **The Webedia Group**. All product and company names are trademarks™ or registered® trademarks of their respective holders. Use of them does not imply any affiliation with or endorsement by them.
