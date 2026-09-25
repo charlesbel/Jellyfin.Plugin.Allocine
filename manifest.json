@@ -9,6 +9,14 @@
         "category": "Metadata",
         "versions": [
             {
+                "version": "0.5.1.0",
+                "changelog": "- Align plugin-owned AlloCin\u00e9 IDs with the private mapping from the daily scheduled task.\n- Re-resolve a stale exact mapping after 180 days even when a native ID is already present.\n- Backfill native IDs for upgraded 0.4.x libraries without a full metadata refresh.\n- Remember exact-miss mappings so Wikidata is not retried every night.\n- Leave user-typed AlloCin\u00e9 IDs untouched.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.5.1/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "5ef2eb7e5c81a01ebda63982cfde353f",
+                "timestamp": "2026-09-25T12:18:56Z"
+            },
+            {
                 "version": "0.5.0.0",
                 "changelog": "- Declare a native AlloCin\u00e9 identifier field for movies and series in Jellyfin's metadata editor.\n- Expose a clickable AlloCin\u00e9 link from a validated native identifier, without network calls.\n- Participate in Jellyfin metadata refresh through a post-refresh custom provider, not a sparse remote fetcher.\n- Write ProviderIds[\"Allocine\"] only after an exact IMDb or TMDb match, never after a title/year fallback.\n- Keep Press and Audience ratings in the private plugin database and never copy them into Jellyfin rating fields.\n- Add a plugin option to enable or disable automatic native identifier writes.\n- Include the AlloCin\u00e9 identifier in the private rating cache identity so a corrected ID cannot reuse a stale score.",
                 "targetAbi": "12.0.0.0",
