@@ -25,6 +25,202 @@ public sealed class AllocineMatchingSafetyTests
     }
 
     [Fact]
+    public async Task TheatricalAndRemixCutSharingImdbTmdbSelectsTheatrical()
+    {
+        using var httpClient = new HttpClient(new RoutingHandler(request =>
+        {
+            string url = request.RequestUri!.AbsoluteUri;
+            if (url.Contains("w/api.php", StringComparison.Ordinal))
+            {
+                return Json("{\"query\":{\"search\":[{\"title\":\"Q1\"},{\"title\":\"Q2\"}]}}");
+            }
+
+            if (url.EndsWith("Q1.json", StringComparison.Ordinal))
+            {
+                return Json(EntityWithProvidersAndInstanceOf(
+                    "Q1",
+                    "tt10872600",
+                    "634649",
+                    "256880",
+                    "Q11424"));
+            }
+
+            if (url.EndsWith("Q2.json", StringComparison.Ordinal))
+            {
+                return Json(EntityWithProvidersAndInstanceOf(
+                    "Q2",
+                    "tt10872600",
+                    "634649",
+                    "305394",
+                    "Q11424",
+                    "Q914242"));
+            }
+
+            return RatingsDependency(request, url);
+        }));
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+        var request = new AllocineRatingsRequest(
+            "0123456789abcdef0123456789abcdef",
+            "Movie",
+            "Spider-Man : No Way Home",
+            "Spider-Man: No Way Home",
+            2021,
+            "tt10872600",
+            "634649");
+
+        AllocineResolvedIdentity identity = await service.ResolveIdentityAsync(
+            request,
+            allowTitleYearFallback: false,
+            CancellationToken.None);
+
+        Assert.Equal("256880", identity.AllocineId);
+        Assert.Equal(AllocineResolutionSource.ExactIdentifiers, identity.Source);
+        Assert.False(identity.IsConflict);
+        Assert.False(identity.IsTransient);
+    }
+
+    [Fact]
+    public async Task TwoCanonicalFilmsSharingImdbTmdbStillFailClosed()
+    {
+        using var httpClient = new HttpClient(new RoutingHandler(request =>
+        {
+            string url = request.RequestUri!.AbsoluteUri;
+            if (url.Contains("w/api.php", StringComparison.Ordinal))
+            {
+                return Json("{\"query\":{\"search\":[{\"title\":\"Q1\"},{\"title\":\"Q2\"}]}}");
+            }
+
+            if (url.EndsWith("Q1.json", StringComparison.Ordinal))
+            {
+                return Json(EntityWithProvidersAndInstanceOf(
+                    "Q1",
+                    "tt10872600",
+                    "634649",
+                    "256880",
+                    "Q11424"));
+            }
+
+            if (url.EndsWith("Q2.json", StringComparison.Ordinal))
+            {
+                return Json(EntityWithProvidersAndInstanceOf(
+                    "Q2",
+                    "tt10872600",
+                    "634649",
+                    "305394",
+                    "Q11424"));
+            }
+
+            return RatingsDependency(request, url);
+        }));
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+        var request = new AllocineRatingsRequest(
+            "0123456789abcdef0123456789abcdef",
+            "Movie",
+            "Spider-Man : No Way Home",
+            "Spider-Man: No Way Home",
+            2021,
+            "tt10872600",
+            "634649");
+
+        AllocineResolvedIdentity identity = await service.ResolveIdentityAsync(
+            request,
+            allowTitleYearFallback: false,
+            CancellationToken.None);
+
+        Assert.Null(identity.AllocineId);
+        Assert.True(identity.IsConflict);
+        Assert.False(identity.IsTransient);
+    }
+
+    [Fact]
+    public async Task UniqueAllocineIdFromImdbWhenTmdbIsMissingOnWikidata()
+    {
+        using var httpClient = new HttpClient(new RoutingHandler(request =>
+        {
+            string url = request.RequestUri!.AbsoluteUri;
+            if (url.Contains("P345", StringComparison.Ordinal))
+            {
+                return Json("{\"query\":{\"search\":[{\"title\":\"Q1\"}]}}");
+            }
+
+            if (url.Contains("P4947", StringComparison.Ordinal))
+            {
+                return Json("{\"query\":{\"search\":[]}}");
+            }
+
+            if (url.EndsWith("Q1.json", StringComparison.Ordinal))
+            {
+                return Json(Entity("Q1", "P345", "tt36933402", "P1265", "1000012412"));
+            }
+
+            return RatingsDependency(request, url);
+        }));
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+        var request = new AllocineRatingsRequest(
+            "0123456789abcdef0123456789abcdef",
+            "Movie",
+            "Cocorico 2",
+            "Cocorico 2",
+            2026,
+            "tt36933402",
+            "1437939");
+
+        AllocineResolvedIdentity identity = await service.ResolveIdentityAsync(
+            request,
+            allowTitleYearFallback: false,
+            CancellationToken.None);
+
+        Assert.Equal("1000012412", identity.AllocineId);
+        Assert.Equal(AllocineResolutionSource.ExactIdentifiers, identity.Source);
+        Assert.False(identity.IsConflict);
+        Assert.False(identity.IsTransient);
+    }
+
+    [Fact]
+    public async Task DualStableIdsWithoutAllocineClaimFallBackToExactTitleYear()
+    {
+        using var httpClient = new HttpClient(new RoutingHandler(request =>
+        {
+            string url = Uri.UnescapeDataString(request.RequestUri!.AbsoluteUri);
+            if (url.Contains("w/api.php", StringComparison.Ordinal))
+            {
+                return Json("{\"query\":{\"search\":[{\"title\":\"Q1\"}]}}");
+            }
+
+            if (url.EndsWith("Q1.json", StringComparison.Ordinal))
+            {
+                return Json(EntityWithProvidersNoAllocine("Q1", "tt36073210", "1440098"));
+            }
+
+            if (url.Contains("autocomplete/", StringComparison.Ordinal))
+            {
+                return Json(Search("Attirés malgré nous", "Enfrentados: Marfil", 2026, "1000020435"));
+            }
+
+            return RatingsDependency(request, url);
+        }));
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+        var request = new AllocineRatingsRequest(
+            "0123456789abcdef0123456789abcdef",
+            "Movie",
+            "Attirés malgré nous",
+            "Enfrentados: Marfil",
+            2026,
+            "tt36073210",
+            "1440098");
+
+        AllocineResolvedIdentity identity = await service.ResolveIdentityAsync(
+            request,
+            allowTitleYearFallback: true,
+            CancellationToken.None);
+
+        Assert.Equal("1000020435", identity.AllocineId);
+        Assert.Equal(AllocineResolutionSource.TitleYear, identity.Source);
+        Assert.False(identity.IsConflict);
+        Assert.False(identity.IsTransient);
+    }
+
+    [Fact]
     public async Task ConflictingImdbAndTmdbMappingsFailClosed()
     {
         using var httpClient = new HttpClient(new RoutingHandler(request =>
@@ -306,6 +502,38 @@ public sealed class AllocineMatchingSafetyTests
             + "\"P345\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + imdbId + "\"}}}],"
             + "\"P4947\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + tmdbId + "\"}}}],"
             + "\"P1265\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + allocineId + "\"}}}]}}}}";
+
+    private static string EntityWithProvidersNoAllocine(string entityId, string imdbId, string tmdbId)
+        => "{\"entities\":{\"" + entityId + "\":{\"claims\":{"
+            + "\"P345\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + imdbId + "\"}}}],"
+            + "\"P4947\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + tmdbId + "\"}}}]}}}}";
+
+    private static string EntityWithProvidersAndInstanceOf(
+        string entityId,
+        string imdbId,
+        string tmdbId,
+        string allocineId,
+        params string[] instanceOf)
+    {
+        var p31 = new StringBuilder();
+        for (int i = 0; i < instanceOf.Length; i++)
+        {
+            if (i > 0)
+            {
+                p31.Append(',');
+            }
+
+            p31.Append("{\"mainsnak\":{\"datavalue\":{\"value\":{\"entity-type\":\"item\",\"id\":\"")
+                .Append(instanceOf[i])
+                .Append("\"}}}}");
+        }
+
+        return "{\"entities\":{\"" + entityId + "\":{\"claims\":{"
+            + "\"P31\":[" + p31 + "],"
+            + "\"P345\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + imdbId + "\"}}}],"
+            + "\"P4947\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + tmdbId + "\"}}}],"
+            + "\"P1265\":[{\"mainsnak\":{\"datavalue\":{\"value\":\"" + allocineId + "\"}}}]}}}}";
+    }
 
     private static HttpResponseMessage RatingsDependency(HttpRequestMessage request, string url)
     {
