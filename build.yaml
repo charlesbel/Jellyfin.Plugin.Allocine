@@ -2,8 +2,8 @@
 name: "Allociné Ratings"
 guid: "93a5b760-3774-43b3-8d99-09a473434680"
 imageUrl: "https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/img/allocine-plugin-logo.png"
-version: "0.5.2.0"
-targetAbi: "12.0.0.0"
+version: "0.5.2"
+targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Ratings from Allociné for Jellyfin."
 description: >
@@ -14,6 +14,4 @@ owner: "charlesbel"
 artifacts:
   - "Jellyfin.Plugin.Allocine.dll"
 changelog: |-
-  - Prefer the theatrical AlloCiné ID when Wikidata also lists a remixed or extended cut.
-  - Accept a unique AlloCiné ID when one of IMDb or TMDb is missing from Wikidata.
-  - After a complete Wikidata miss, match title and year if both IMDb and TMDb are present, and write that native ID.
+  - feat: cover theatrical cuts, single-source IDs, and title-year fallback (#13) @charlesbel
