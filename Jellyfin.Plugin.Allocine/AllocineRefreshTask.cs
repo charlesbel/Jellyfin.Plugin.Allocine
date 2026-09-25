@@ -23,6 +23,7 @@ namespace Jellyfin.Plugin.Allocine
         private readonly ILibraryManager _libraryManager;
         private readonly AllocineRatingCacheService _cacheService;
         private readonly ILogger<AllocineRefreshTask> _logger;
+        private readonly PluginConfiguration? _configuration;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AllocineRefreshTask"/> class.
@@ -42,12 +43,14 @@ namespace Jellyfin.Plugin.Allocine
             ILibraryManager libraryManager,
             AllocineRatingCacheService cacheService,
             ILogger<AllocineRefreshTask> logger,
-            TimeSpan requestPacing)
+            TimeSpan requestPacing,
+            PluginConfiguration? configuration = null)
         {
             _libraryManager = libraryManager;
             _cacheService = cacheService;
             _logger = logger;
             _requestPacing = requestPacing;
+            _configuration = configuration;
         }
 
         /// <inheritdoc />
@@ -57,10 +60,14 @@ namespace Jellyfin.Plugin.Allocine
         public string Key => "AllocineRatingsRefresh";
 
         /// <inheritdoc />
-        public string Description => "Récupère les notes AlloCiné des films et séries dans la base privée du plugin, sans modifier les notes Jellyfin.";
+        public string Description =>
+            "Récupère les notes AlloCiné des films et séries dans la base privée du plugin, et aligne l'identifiant natif Jellyfin lorsqu'une correspondance exacte est prouvée.";
 
         /// <inheritdoc />
         public string Category => "Allociné Ratings";
+
+        private PluginConfiguration Configuration =>
+            _configuration ?? Plugin.Instance?.Configuration ?? new PluginConfiguration();
 
         /// <inheritdoc />
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers() => DefaultTriggers();
@@ -100,6 +107,16 @@ namespace Jellyfin.Plugin.Allocine
 
                 try
                 {
+                    bool nativeChanged = await TrySyncNativeIdAsync(item, request, cancellationToken).ConfigureAwait(false);
+                    if (nativeChanged)
+                    {
+                        string? current = item.GetProviderId(AllocineProviderNames.Key);
+                        if (AllocineProviderNames.IsValidId(current))
+                        {
+                            request = request with { AllocineId = current };
+                        }
+                    }
+
                     if (await _cacheService.NeedsRefreshAsync(request, cancellationToken).ConfigureAwait(false))
                     {
                         AllocineRefreshOutcome outcome = await _cacheService
@@ -113,12 +130,20 @@ namespace Jellyfin.Plugin.Allocine
                         {
                             failed++;
                         }
-                        else
+                        else if (!nativeChanged)
                         {
                             skipped++;
                         }
+                        else
+                        {
+                            refreshed++;
+                        }
 
                         await Task.Delay(_requestPacing, cancellationToken).ConfigureAwait(false);
+                    }
+                    else if (nativeChanged)
+                    {
+                        refreshed++;
                     }
                     else
                     {
@@ -191,6 +216,59 @@ namespace Jellyfin.Plugin.Allocine
 
             return !string.IsNullOrWhiteSpace(request.ImdbId)
                 || !string.IsNullOrWhiteSpace(request.TmdbId);
+        }
+
+        private async Task<bool> TrySyncNativeIdAsync(
+            BaseItem item,
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (item.IsLocked || !Configuration.WriteNativeAllocineIds)
+            {
+                return false;
+            }
+
+            string? exactId = await _cacheService
+                .GetExactAllocineIdAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+            if (exactId == null)
+            {
+                return false;
+            }
+
+            string? previous = item.GetProviderId(AllocineProviderNames.Key);
+            if (!await _cacheService
+                    .TryWriteNativeIdAsync(item, request, exactId, cancellationToken, recordProvenance: false)
+                    .ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            try
+            {
+                await _libraryManager
+                    .UpdateItemAsync(item, item, ItemUpdateType.MetadataImport, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                RestoreNativeId(item, previous);
+                throw;
+            }
+
+            await _cacheService.RecordNativeWriteAsync(request, exactId, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        private static void RestoreNativeId(BaseItem item, string? previous)
+        {
+            if (string.IsNullOrWhiteSpace(previous))
+            {
+                item.ProviderIds.Remove(AllocineProviderNames.Key);
+                return;
+            }
+
+            item.TrySetProviderId(AllocineProviderNames.Key, previous);
         }
 
         private static void ReportProgress(IProgress<double> progress, int completed, int total)

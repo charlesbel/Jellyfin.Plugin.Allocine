@@ -36,7 +36,7 @@ Unlike standard metadata providers, this plugin injects the specific **"Presse" 
 -   **Resilient Mobile Authentication:** Reproduces the anonymous authentication flow used by the current Allociné Android application and renews it automatically when rejected.
 -   **Safe Public Fallback:** Falls back to the public movie page if the mobile API is unavailable, while refusing Cloudflare challenge or malformed pages.
 -   **Private Persistent Cache:** Stores mappings and ratings in a plugin-owned SQLite database without modifying Jellyfin's databases or native rating fields.
--   **Adaptive Refresh:** A scheduled task refreshes volatile new releases more frequently, applies retry backoff, and preserves the last known rating during remote failures.
+-   **Adaptive Refresh:** A scheduled task refreshes volatile new releases more frequently, applies retry backoff, preserves the last known rating during remote failures, and keeps plugin-owned AlloCiné IDs aligned with the private mapping (including a 180-day re-check).
 -   **Resilient Injection:** Handles single-page navigation and late DOM rebuilding while keeping AlloCiné badges between parental classification and Jellyfin's native ratings.
 -   **Cache-First Display:** Serves cached ratings immediately and performs a dynamic lookup only when needed.
 
@@ -61,7 +61,7 @@ This plugin utilizes a hybrid approach combining a C# backend controller and a J
 
 The backend reads the current media item from Jellyfin and uses its IMDb and TMDb identifiers to resolve the corresponding Allociné movie or series identifier through Wikidata. When both identifiers are present, they must resolve consistently. Ambiguous, missing, or contradictory mappings are rejected rather than guessed. A title/year lookup is reserved for an interactive cache miss and still requires an exact, unambiguous result.
 
-A post-refresh custom metadata provider can persist a proven AlloCiné identifier as `ProviderIds["Allocine"]` and expose the matching public page as a native external link. That write is optional, never uses a title/year fallback, and never copies AlloCiné scores into Jellyfin rating fields.
+A post-refresh custom metadata provider can persist a proven AlloCiné identifier as `ProviderIds["Allocine"]` and expose the matching public page as a native external link. The daily scheduled task uses the same exact-write path so a mapping change after 180 days updates both the private database and Jellyfin. That write is optional, never uses a title/year fallback, never overwrites an ID typed by the user, and never copies AlloCiné scores into Jellyfin rating fields.
 
 Once identity is established, the plugin retrieves the Press and Audience ratings from the **GraphQL API** used by the official Allociné Android application.
 
