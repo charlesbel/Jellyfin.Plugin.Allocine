@@ -23,6 +23,11 @@ namespace Jellyfin.Plugin.Allocine
         /// <summary>
         /// The identifier was persisted before exact versus title/year provenance was recorded.
         /// </summary>
-        Unknown = 3
+        Unknown = 3,
+
+        /// <summary>
+        /// An exact IMDb/TMDb resolve was attempted and produced no unique identifier.
+        /// </summary>
+        ExactMiss = 4
     }
 }

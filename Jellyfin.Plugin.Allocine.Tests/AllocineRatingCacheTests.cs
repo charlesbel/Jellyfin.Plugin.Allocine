@@ -387,6 +387,147 @@ public sealed class AllocineRatingCacheTests : IDisposable
         Assert.Contains("newer than supported", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ExpiredExactMappingIsReResolvedInsteadOfTrustingTheNativeId()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        AllocineRatingsRequest request = Request(year: 2011) with { AllocineId = "111" };
+        await store.WriteMappingAsync(
+            request,
+            "111",
+            time.GetUtcNow(),
+            AllocineResolutionSource.ExactIdentifiers,
+            CancellationToken.None);
+        await store.RecordNativeWriteAsync(
+            request.ItemId,
+            "111",
+            AllocineRatingStore.IdentityKey(request),
+            time.GetUtcNow(),
+            CancellationToken.None);
+        await store.WriteAsync(
+            request,
+            new Dictionary<string, string> { ["public"] = "1.0" },
+            time.GetUtcNow(),
+            CancellationToken.None);
+        time.Advance(TimeSpan.FromDays(181));
+        var provider = new RedirectingMappingProvider("222", new Dictionary<string, string> { ["public"] = "4.8" });
+        var service = new AllocineRatingCacheService(store, provider, NullLogger<AllocineRatingCacheService>.Instance, time);
+
+        AllocineRefreshOutcome outcome = await service.RefreshIfNeededAsync(request, CancellationToken.None);
+
+        Assert.Equal(AllocineRefreshResult.Updated, outcome.Result);
+        Assert.Equal("4.8", outcome.Ratings?["public"]);
+        Assert.Equal("222", provider.RatedAllocineId);
+        Assert.Equal(1, provider.ExactCalls);
+        AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
+        Assert.Equal("222", mapping?.AllocineId);
+        Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
+    }
+
+    [Fact]
+    public async Task TransientExactResolveDoesNotOverwriteExactMappingWithTitleYear()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        AllocineRatingsRequest request = Request(year: 2011) with { AllocineId = "111" };
+        await store.WriteMappingAsync(
+            request,
+            "111",
+            time.GetUtcNow(),
+            AllocineResolutionSource.ExactIdentifiers,
+            CancellationToken.None);
+        await store.RecordNativeWriteAsync(
+            request.ItemId,
+            "111",
+            AllocineRatingStore.IdentityKey(request),
+            time.GetUtcNow(),
+            CancellationToken.None);
+        await store.WriteAsync(
+            request,
+            new Dictionary<string, string> { ["public"] = "1.0" },
+            time.GetUtcNow(),
+            CancellationToken.None);
+        time.Advance(TimeSpan.FromDays(181));
+        var provider = new TransientThenTitleYearProvider();
+        var service = new AllocineRatingCacheService(store, provider, NullLogger<AllocineRatingCacheService>.Instance, time);
+
+        AllocineRefreshOutcome outcome = await service.RefreshIfNeededAsync(request, CancellationToken.None);
+
+        Assert.Equal(AllocineRefreshResult.Failed, outcome.Result);
+        AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
+        Assert.Equal("111", mapping?.AllocineId);
+        Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
+        Assert.Equal(1, provider.ExactCalls);
+        Assert.Equal(0, provider.TitleYearCalls);
+    }
+
+    [Fact]
+    public async Task AuthoritativeExactMissDoesNotOverwriteExactMappingWithTitleYear()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        AllocineRatingsRequest request = Request(year: 2011) with { AllocineId = "111" };
+        await store.WriteMappingAsync(
+            request,
+            "111",
+            time.GetUtcNow(),
+            AllocineResolutionSource.ExactIdentifiers,
+            CancellationToken.None);
+        await store.RecordNativeWriteAsync(
+            request.ItemId,
+            "111",
+            AllocineRatingStore.IdentityKey(request),
+            time.GetUtcNow(),
+            CancellationToken.None);
+        await store.WriteAsync(
+            request,
+            new Dictionary<string, string> { ["public"] = "1.0" },
+            time.GetUtcNow(),
+            CancellationToken.None);
+        time.Advance(TimeSpan.FromDays(181));
+        var provider = new ExactMissThenTitleYearProvider();
+        var service = new AllocineRatingCacheService(store, provider, NullLogger<AllocineRatingCacheService>.Instance, time);
+
+        AllocineRefreshOutcome outcome = await service.RefreshIfNeededAsync(request, CancellationToken.None);
+
+        AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
+        Assert.Equal("111", mapping?.AllocineId);
+        Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
+        Assert.Equal(1, provider.ExactCalls);
+        Assert.Equal(0, provider.TitleYearCalls);
+        Assert.Equal("111", provider.RatedAllocineId);
+        Assert.Equal(AllocineRefreshResult.Updated, outcome.Result);
+        Assert.Equal("4.8", outcome.Ratings?["public"]);
+    }
+
+    [Fact]
+    public async Task WikidataHttpFailureDoesNotExactMissAnUnknownMapping()
+    {
+        using var httpClient = new HttpClient(new AlwaysFailHandler());
+        using var mapping = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        AllocineRatingsRequest request = Request();
+        await store.WriteMappingAsync(
+            request,
+            "999",
+            DateTimeOffset.UtcNow,
+            AllocineResolutionSource.Unknown,
+            CancellationToken.None);
+        var service = new AllocineRatingCacheService(store, mapping, NullLogger<AllocineRatingCacheService>.Instance);
+
+        string? exactId = await service.GetExactAllocineIdAsync(request, CancellationToken.None);
+
+        Assert.Null(exactId);
+        AllocineMappingEntry? persisted = await store.ReadMappingAsync(request, CancellationToken.None);
+        Assert.Equal("999", persisted?.AllocineId);
+        Assert.Equal(AllocineResolutionSource.Unknown, persisted?.Source);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))
@@ -492,6 +633,176 @@ public sealed class AllocineRatingCacheTests : IDisposable
             return resolved == null
                 ? null
                 : await GetRatingsByAllocineIdAsync(resolved, request.MediaType, cancellationToken);
+        }
+    }
+
+    private sealed class RedirectingMappingProvider(string allocineId, Dictionary<string, string> ratings)
+        : IAllocineMappingProvider
+    {
+        public int ExactCalls { get; private set; }
+
+        public string? RatedAllocineId { get; private set; }
+
+        public Task<AllocineResolvedIdentity> ResolveIdentityAsync(
+            AllocineRatingsRequest request,
+            bool allowTitleYearFallback,
+            CancellationToken cancellationToken)
+        {
+            if (!allowTitleYearFallback)
+            {
+                ExactCalls++;
+            }
+
+            return Task.FromResult(new AllocineResolvedIdentity(
+                allocineId,
+                AllocineResolutionSource.ExactIdentifiers,
+                false));
+        }
+
+        public async Task<string?> ResolveAllocineIdAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            return (await ResolveIdentityAsync(request, false, cancellationToken)).AllocineId;
+        }
+
+        public Task<Dictionary<string, string>?> GetRatingsByAllocineIdAsync(
+            string resolvedAllocineId,
+            string mediaType,
+            CancellationToken cancellationToken)
+        {
+            RatedAllocineId = resolvedAllocineId;
+            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string>(ratings));
+        }
+
+        public async Task<Dictionary<string, string>?> GetRatingsAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? resolved = await ResolveAllocineIdAsync(request, cancellationToken);
+            return resolved == null
+                ? null
+                : await GetRatingsByAllocineIdAsync(resolved, request.MediaType, cancellationToken);
+        }
+    }
+
+    private sealed class TransientThenTitleYearProvider : IAllocineMappingProvider
+    {
+        public int ExactCalls { get; private set; }
+
+        public int TitleYearCalls { get; private set; }
+
+        public Task<AllocineResolvedIdentity> ResolveIdentityAsync(
+            AllocineRatingsRequest request,
+            bool allowTitleYearFallback,
+            CancellationToken cancellationToken)
+        {
+            if (!allowTitleYearFallback)
+            {
+                ExactCalls++;
+                return Task.FromResult(new AllocineResolvedIdentity(
+                    null,
+                    AllocineResolutionSource.None,
+                    false,
+                    true));
+            }
+
+            TitleYearCalls++;
+            return Task.FromResult(new AllocineResolvedIdentity(
+                "999",
+                AllocineResolutionSource.TitleYear,
+                false));
+        }
+
+        public async Task<string?> ResolveAllocineIdAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            return (await ResolveIdentityAsync(request, true, cancellationToken)).AllocineId;
+        }
+
+        public Task<Dictionary<string, string>?> GetRatingsByAllocineIdAsync(
+            string resolvedAllocineId,
+            string mediaType,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string> { ["public"] = "4.8" });
+        }
+
+        public async Task<Dictionary<string, string>?> GetRatingsAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? resolved = await ResolveAllocineIdAsync(request, cancellationToken);
+            return resolved == null
+                ? null
+                : await GetRatingsByAllocineIdAsync(resolved, request.MediaType, cancellationToken);
+        }
+    }
+
+    private sealed class ExactMissThenTitleYearProvider : IAllocineMappingProvider
+    {
+        public int ExactCalls { get; private set; }
+
+        public int TitleYearCalls { get; private set; }
+
+        public string? RatedAllocineId { get; private set; }
+
+        public Task<AllocineResolvedIdentity> ResolveIdentityAsync(
+            AllocineRatingsRequest request,
+            bool allowTitleYearFallback,
+            CancellationToken cancellationToken)
+        {
+            if (!allowTitleYearFallback)
+            {
+                ExactCalls++;
+                return Task.FromResult(new AllocineResolvedIdentity(
+                    null,
+                    AllocineResolutionSource.None,
+                    false));
+            }
+
+            TitleYearCalls++;
+            return Task.FromResult(new AllocineResolvedIdentity(
+                "999",
+                AllocineResolutionSource.TitleYear,
+                false));
+        }
+
+        public async Task<string?> ResolveAllocineIdAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            return (await ResolveIdentityAsync(request, true, cancellationToken)).AllocineId;
+        }
+
+        public Task<Dictionary<string, string>?> GetRatingsByAllocineIdAsync(
+            string resolvedAllocineId,
+            string mediaType,
+            CancellationToken cancellationToken)
+        {
+            RatedAllocineId = resolvedAllocineId;
+            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string> { ["public"] = "4.8" });
+        }
+
+        public async Task<Dictionary<string, string>?> GetRatingsAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            string? resolved = await ResolveAllocineIdAsync(request, cancellationToken);
+            return resolved == null
+                ? null
+                : await GetRatingsByAllocineIdAsync(resolved, request.MediaType, cancellationToken);
+        }
+    }
+
+    private sealed class AlwaysFailHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError));
         }
     }
 }

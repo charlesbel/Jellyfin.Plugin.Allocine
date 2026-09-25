@@ -187,6 +187,30 @@ public sealed class AllocineMatchingSafetyTests
     }
 
     [Fact]
+    public async Task WikidataHttpFailureIsTransientNotConflict()
+    {
+        using var httpClient = new HttpClient(new RoutingHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+        var request = new AllocineRatingsRequest(
+            "0123456789abcdef0123456789abcdef",
+            "Movie",
+            "The Insider",
+            "Black Bag",
+            2025,
+            "tt30988739",
+            "1233575");
+
+        AllocineResolvedIdentity identity = await service.ResolveIdentityAsync(
+            request,
+            allowTitleYearFallback: false,
+            CancellationToken.None);
+
+        Assert.True(identity.IsTransient);
+        Assert.False(identity.IsConflict);
+        Assert.Null(identity.AllocineId);
+    }
+
+    [Fact]
     public async Task UnresolvedSingleProviderIdDoesNotFallBackToTitle()
     {
         using var httpClient = new HttpClient(new RoutingHandler(request =>

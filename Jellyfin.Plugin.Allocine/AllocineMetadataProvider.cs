@@ -95,7 +95,8 @@ namespace Jellyfin.Plugin.Allocine
                     string? exactId = await _cache.GetExactAllocineIdAsync(request, cancellationToken).ConfigureAwait(false);
                     if (exactId != null)
                     {
-                        nativeChanged = await TryWriteNativeIdAsync(item, request, exactId, cancellationToken)
+                        nativeChanged = await _cache
+                            .TryWriteNativeIdAsync(item, request, exactId, cancellationToken)
                             .ConfigureAwait(false);
                         string? current = item.GetProviderId(AllocineProviderNames.Key);
                         if (AllocineProviderNames.IsValidId(current))
@@ -128,44 +129,6 @@ namespace Jellyfin.Plugin.Allocine
             }
 
             return nativeChanged ? ItemUpdateType.MetadataImport : ItemUpdateType.None;
-        }
-
-        private async Task<bool> TryWriteNativeIdAsync(
-            BaseItem item,
-            AllocineRatingsRequest request,
-            string exactId,
-            CancellationToken cancellationToken)
-        {
-            string? current = item.GetProviderId(AllocineProviderNames.Key);
-            if (string.Equals(current, exactId, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                AllocineNativeWriteEntry? provenance = await _store
-                    .ReadNativeWriteAsync(request.ItemId, cancellationToken)
-                    .ConfigureAwait(false);
-                if (provenance == null
-                    || !string.Equals(provenance.AllocineId, current, StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            if (!item.TrySetProviderId(AllocineProviderNames.Key, exactId))
-            {
-                return false;
-            }
-
-            await _store.RecordNativeWriteAsync(
-                request.ItemId,
-                exactId,
-                AllocineRatingStore.IdentityKey(request),
-                DateTimeOffset.UtcNow,
-                cancellationToken).ConfigureAwait(false);
-            return true;
         }
     }
 }

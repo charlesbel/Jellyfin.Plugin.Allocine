@@ -6,8 +6,10 @@ namespace Jellyfin.Plugin.Allocine
     /// <param name="AllocineId">The proven identifier, when exactly one exists.</param>
     /// <param name="Source">How the identifier was obtained.</param>
     /// <param name="IsConflict">Whether supplied identifiers contradicted each other or failed closed.</param>
+    /// <param name="IsTransient">Whether the lookup failed because of a transport or parse error.</param>
     public sealed record AllocineResolvedIdentity(
         string? AllocineId,
         AllocineResolutionSource Source,
-        bool IsConflict);
+        bool IsConflict,
+        bool IsTransient = false);
 }

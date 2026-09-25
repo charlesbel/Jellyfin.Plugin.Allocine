@@ -138,6 +138,11 @@ namespace Jellyfin.Plugin.Allocine
                     request.TmdbId,
                     isSeries,
                     cancellationToken).ConfigureAwait(false);
+                if (resolution.IsIncomplete)
+                {
+                    return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, false, true);
+                }
+
                 if (resolution.IsConflict)
                 {
                     _logger.LogWarning("[Allocine] Conflicting external identifiers; refusing to select a media.");
@@ -178,7 +183,7 @@ namespace Jellyfin.Plugin.Allocine
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[Allocine] Error resolving exact AlloCiné identity");
-                return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, false);
+                return new AllocineResolvedIdentity(null, AllocineResolutionSource.None, false, true);
             }
         }
 
@@ -253,7 +258,7 @@ namespace Jellyfin.Plugin.Allocine
 
                     _nextWikidataRequestAt = DateTimeOffset.UtcNow + _wikidataPacing;
                     using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.0 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
+                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.1 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
                     HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 1)
                     {
@@ -386,8 +391,12 @@ namespace Jellyfin.Plugin.Allocine
                 resolvedIds.UnionWith(currentQueryIds);
             }
 
-            if (queryCompleteness.Any(isComplete => !isComplete)
-                || (identifiers.Count > 1 && queryResolvedIds.Any(ids => ids.Count == 0))
+            if (queryCompleteness.Any(isComplete => !isComplete))
+            {
+                return new IdResolution(null, false, true);
+            }
+
+            if ((identifiers.Count > 1 && queryResolvedIds.Any(ids => ids.Count == 0))
                 || (identifiers.Count > 0 && resolvedIds.Count == 0)
                 || resolvedIds.Count > 1)
             {
@@ -716,6 +725,6 @@ namespace Jellyfin.Plugin.Allocine
             return builder.ToString();
         }
 
-        private readonly record struct IdResolution(string? Id, bool IsConflict);
+        private readonly record struct IdResolution(string? Id, bool IsConflict, bool IsIncomplete = false);
     }
 }
