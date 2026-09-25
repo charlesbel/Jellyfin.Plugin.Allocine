@@ -9,6 +9,14 @@
         "category": "Metadata",
         "versions": [
             {
+                "version": "0.5.0.0",
+                "changelog": "- Declare a native AlloCin\u00e9 identifier field for movies and series in Jellyfin's metadata editor.\n- Expose a clickable AlloCin\u00e9 link from a validated native identifier, without network calls.\n- Participate in Jellyfin metadata refresh through a post-refresh custom provider, not a sparse remote fetcher.\n- Write ProviderIds[\"Allocine\"] only after an exact IMDb or TMDb match, never after a title/year fallback.\n- Keep Press and Audience ratings in the private plugin database and never copy them into Jellyfin rating fields.\n- Add a plugin option to enable or disable automatic native identifier writes.\n- Include the AlloCin\u00e9 identifier in the private rating cache identity so a corrected ID cannot reuse a stale score.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.5.0/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "f5c710418c673c8073a370e0c6b946f3",
+                "timestamp": "2026-09-25T10:14:22Z"
+            },
+            {
                 "version": "0.4.6.0",
                 "changelog": "- Match movies and series through exact IMDb/TMDb identifiers via Wikidata and reject ambiguous or contradictory mappings.\n- Cache validated identity mappings separately from ratings in a private, transactional SQLite database.\n- Serve stale positive ratings immediately while applying adaptive freshness and failure backoff.\n- Add an authenticated Jellyfin scheduled task that refreshes only eligible media with stable provider identifiers.\n- Pace and serialize Wikidata traffic, honor bounded 429 retries, and use a Wikimedia-compliant User-Agent.\n- Preserve Jellyfin's native rating fields and enforce per-user media access on the ratings endpoint.\n- Keep AlloCin\u00e9 badges stable between parental classification and native ratings, including with Jellyfin Enhanced.\n- Coalesce frontend and backend work, guard SPA navigation races, and bound retries after persistent failures.",
                 "targetAbi": "12.0.0.0",
