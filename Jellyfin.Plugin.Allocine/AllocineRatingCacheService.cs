@@ -239,7 +239,8 @@ namespace Jellyfin.Plugin.Allocine
             try
             {
                 AllocineMappingEntry? mapping = await TryReadMappingAsync(request, cancellationToken).ConfigureAwait(false);
-                if (IsFreshExactMapping(mapping, request))
+                if (IsFreshExactMapping(mapping, request)
+                    || IsFreshTitleYearMapping(mapping, request))
                 {
                     return mapping!.AllocineId;
                 }
@@ -267,40 +268,51 @@ namespace Jellyfin.Plugin.Allocine
                         : null;
                 }
 
-                if (resolved.IsConflict
-                    || resolved.Source != AllocineResolutionSource.ExactIdentifiers
-                    || !AllocineProviderNames.IsValidId(resolved.AllocineId))
+                if (resolved.Source == AllocineResolutionSource.ExactIdentifiers
+                    && AllocineProviderNames.IsValidId(resolved.AllocineId))
                 {
-                    if (mapping is { Source: AllocineResolutionSource.ExactIdentifiers }
-                        && AllocineProviderNames.IsValidId(mapping.AllocineId))
-                    {
-                        await TryPreserveExactMappingAsync(request, mapping, cancellationToken).ConfigureAwait(false);
-                        return mapping.AllocineId;
-                    }
-
-                    await TryRememberExactMissAsync(request, mapping, cancellationToken).ConfigureAwait(false);
-                    return null;
-                }
-
-                try
-                {
-                    await _store.WriteMappingAsync(
+                    await TryWriteIdentityMappingAsync(
                         request,
                         resolved.AllocineId!,
-                        _timeProvider.GetUtcNow(),
                         AllocineResolutionSource.ExactIdentifiers,
                         cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "[Allocine] Failed to persist exact identity mapping for item {ItemId}", request.ItemId);
+                    return resolved.AllocineId;
                 }
 
-                return resolved.AllocineId;
+                if (mapping is { Source: AllocineResolutionSource.ExactIdentifiers }
+                    && AllocineProviderNames.IsValidId(mapping.AllocineId))
+                {
+                    await TryPreserveExactMappingAsync(request, mapping, cancellationToken).ConfigureAwait(false);
+                    return mapping.AllocineId;
+                }
+
+                bool hasBothStableIds = !string.IsNullOrWhiteSpace(request.ImdbId)
+                    && !string.IsNullOrWhiteSpace(request.TmdbId);
+                if (!resolved.IsConflict && hasBothStableIds)
+                {
+                    AllocineResolvedIdentity titleYear = await mappingProvider
+                        .ResolveIdentityAsync(request, allowTitleYearFallback: true, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (titleYear.IsTransient)
+                    {
+                        return null;
+                    }
+
+                    if (AllocineProviderNames.IsValidId(titleYear.AllocineId)
+                        && (titleYear.Source == AllocineResolutionSource.TitleYear
+                            || titleYear.Source == AllocineResolutionSource.ExactIdentifiers))
+                    {
+                        await TryWriteIdentityMappingAsync(
+                            request,
+                            titleYear.AllocineId!,
+                            titleYear.Source,
+                            cancellationToken).ConfigureAwait(false);
+                        return titleYear.AllocineId;
+                    }
+                }
+
+                await TryRememberExactMissAsync(request, mapping, cancellationToken).ConfigureAwait(false);
+                return null;
             }
             finally
             {
@@ -364,13 +376,26 @@ namespace Jellyfin.Plugin.Allocine
             AllocineMappingEntry mapping,
             CancellationToken cancellationToken)
         {
+            await TryWriteIdentityMappingAsync(
+                request,
+                mapping.AllocineId,
+                AllocineResolutionSource.ExactIdentifiers,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task TryWriteIdentityMappingAsync(
+            AllocineRatingsRequest request,
+            string allocineId,
+            AllocineResolutionSource source,
+            CancellationToken cancellationToken)
+        {
             try
             {
                 await _store.WriteMappingAsync(
                     request,
-                    mapping.AllocineId,
+                    allocineId,
                     _timeProvider.GetUtcNow(),
-                    AllocineResolutionSource.ExactIdentifiers,
+                    source,
                     cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -379,7 +404,7 @@ namespace Jellyfin.Plugin.Allocine
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "[Allocine] Failed to refresh exact identity mapping for item {ItemId}", request.ItemId);
+                _logger.LogWarning(ex, "[Allocine] Failed to persist identity mapping for item {ItemId}", request.ItemId);
             }
         }
 
@@ -527,6 +552,12 @@ namespace Jellyfin.Plugin.Allocine
         {
             return IsFreshMapping(mapping, request)
                 && mapping!.Source == AllocineResolutionSource.ExactIdentifiers;
+        }
+
+        private bool IsFreshTitleYearMapping(AllocineMappingEntry? mapping, AllocineRatingsRequest request)
+        {
+            return IsFreshMapping(mapping, request)
+                && mapping!.Source == AllocineResolutionSource.TitleYear;
         }
 
         private bool IsFreshMapping(AllocineMappingEntry? mapping, AllocineRatingsRequest request)

@@ -528,6 +528,24 @@ public sealed class AllocineRatingCacheTests : IDisposable
         Assert.Equal(AllocineResolutionSource.Unknown, persisted?.Source);
     }
 
+    [Fact]
+    public async Task SecondResolveExactIdentifiersIsPersistedAsExactNotDropped()
+    {
+        var provider = new ExactMissThenExactIdentifiersProvider();
+        var store = new AllocineRatingStore(Path.Combine(_directory, "ratings.db"), NullLogger<AllocineRatingStore>.Instance);
+        var service = new AllocineRatingCacheService(store, provider, NullLogger<AllocineRatingCacheService>.Instance);
+        AllocineRatingsRequest request = Request();
+
+        string? exactId = await service.GetExactAllocineIdAsync(request, CancellationToken.None);
+
+        Assert.Equal("256880", exactId);
+        AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
+        Assert.Equal("256880", mapping?.AllocineId);
+        Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
+        Assert.Equal(1, provider.ExactCalls);
+        Assert.Equal(1, provider.FallbackCalls);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))
@@ -793,6 +811,56 @@ public sealed class AllocineRatingCacheTests : IDisposable
             return resolved == null
                 ? null
                 : await GetRatingsByAllocineIdAsync(resolved, request.MediaType, cancellationToken);
+        }
+    }
+
+    private sealed class ExactMissThenExactIdentifiersProvider : IAllocineMappingProvider
+    {
+        public int ExactCalls { get; private set; }
+
+        public int FallbackCalls { get; private set; }
+
+        public Task<AllocineResolvedIdentity> ResolveIdentityAsync(
+            AllocineRatingsRequest request,
+            bool allowTitleYearFallback,
+            CancellationToken cancellationToken)
+        {
+            if (!allowTitleYearFallback)
+            {
+                ExactCalls++;
+                return Task.FromResult(new AllocineResolvedIdentity(
+                    null,
+                    AllocineResolutionSource.None,
+                    false));
+            }
+
+            FallbackCalls++;
+            return Task.FromResult(new AllocineResolvedIdentity(
+                "256880",
+                AllocineResolutionSource.ExactIdentifiers,
+                false));
+        }
+
+        public async Task<string?> ResolveAllocineIdAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            return (await ResolveIdentityAsync(request, true, cancellationToken)).AllocineId;
+        }
+
+        public Task<Dictionary<string, string>?> GetRatingsByAllocineIdAsync(
+            string resolvedAllocineId,
+            string mediaType,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<Dictionary<string, string>?>(null);
+        }
+
+        public Task<Dictionary<string, string>?> GetRatingsAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<Dictionary<string, string>?>(null);
         }
     }
 

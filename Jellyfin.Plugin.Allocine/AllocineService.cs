@@ -25,6 +25,11 @@ namespace Jellyfin.Plugin.Allocine
         private static readonly CompositeFormat SearchUrlFormat = CompositeFormat.Parse("https://www.allocine.fr/_/autocomplete/{0}");
         private static readonly CompositeFormat WikidataSearchUrlFormat = CompositeFormat.Parse("https://www.wikidata.org/w/api.php?action=query&list=search&srnamespace=0&format=json&srsearch={0}");
         private static readonly CompositeFormat WikidataEntityUrlFormat = CompositeFormat.Parse("https://www.wikidata.org/wiki/Special:EntityData/{0}.json");
+        private static readonly HashSet<string> NonCanonicalWorkTypes = new(StringComparer.Ordinal)
+        {
+            "Q914242",
+            "Q20644795",
+        };
 
         private readonly HttpClient _httpClient;
         private readonly AllocineAuthTokenProvider _authTokenProvider;
@@ -258,7 +263,7 @@ namespace Jellyfin.Plugin.Allocine
 
                     _nextWikidataRequestAt = DateTimeOffset.UtcNow + _wikidataPacing;
                     using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.1 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
+                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.2 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
                     HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 1)
                     {
@@ -299,8 +304,9 @@ namespace Jellyfin.Plugin.Allocine
         {
             var identifiers = new List<(string Property, string Value)>();
             var resolvedIds = new HashSet<string>(StringComparer.Ordinal);
-            var queryResolvedIds = new List<HashSet<string>>();
+            var candidates = new List<(string AllocineId, HashSet<string> InstanceOf)>();
             var queryCompleteness = new List<bool>();
+            bool rejectedConflictingClaim = false;
             bool imdbSupplied = !string.IsNullOrWhiteSpace(imdbId);
             bool tmdbSupplied = !string.IsNullOrWhiteSpace(tmdbId);
             if (imdbSupplied && !Regex.IsMatch(imdbId!, "^tt[0-9]{7,9}$", RegexOptions.CultureInvariant))
@@ -361,17 +367,20 @@ namespace Jellyfin.Plugin.Allocine
                         entityResponse.EnsureSuccessStatusCode();
                         JsonNode? entityData = JsonNode.Parse(await entityResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
                         JsonNode? claims = entityData?["entities"]?[entityId]?["claims"];
-                        if (!identifiers.All(identifier => ClaimContains(claims, identifier.Property, identifier.Value)))
+                        if (!EntityMatchesSearchIdentifier(claims, identifiers, property, out bool conflictingClaim))
                         {
+                            rejectedConflictingClaim |= conflictingClaim;
                             continue;
                         }
 
                         string allocineProperty = isSeries ? "P1267" : "P1265";
+                        var instanceOf = new HashSet<string>(ClaimEntityIds(claims, "P31"), StringComparer.Ordinal);
                         foreach (string allocineId in ClaimValues(claims, allocineProperty))
                         {
                             if (Regex.IsMatch(allocineId, "^[1-9][0-9]{0,11}$", RegexOptions.CultureInvariant))
                             {
                                 currentQueryIds.Add(allocineId);
+                                candidates.Add((allocineId, instanceOf));
                             }
                         }
                     }
@@ -387,7 +396,6 @@ namespace Jellyfin.Plugin.Allocine
                 }
 
                 queryCompleteness.Add(currentQueryComplete);
-                queryResolvedIds.Add(currentQueryIds);
                 resolvedIds.UnionWith(currentQueryIds);
             }
 
@@ -396,9 +404,14 @@ namespace Jellyfin.Plugin.Allocine
                 return new IdResolution(null, false, true);
             }
 
-            if ((identifiers.Count > 1 && queryResolvedIds.Any(ids => ids.Count == 0))
-                || (identifiers.Count > 0 && resolvedIds.Count == 0)
-                || resolvedIds.Count > 1)
+            if (resolvedIds.Count > 1)
+            {
+                resolvedIds = PreferCanonicalAllocineIds(candidates);
+            }
+
+            if (resolvedIds.Count > 1
+                || rejectedConflictingClaim
+                || (identifiers.Count == 1 && resolvedIds.Count == 0))
             {
                 return new IdResolution(null, true);
             }
@@ -692,6 +705,36 @@ namespace Jellyfin.Plugin.Allocine
                 StringComparison.Ordinal));
         }
 
+        private static bool EntityMatchesSearchIdentifier(
+            JsonNode? claims,
+            List<(string Property, string Value)> identifiers,
+            string searchProperty,
+            out bool conflictingClaim)
+        {
+            conflictingClaim = false;
+            (string _, string searchValue) = identifiers.First(identifier => identifier.Property == searchProperty);
+            if (!ClaimContains(claims, searchProperty, searchValue))
+            {
+                return false;
+            }
+
+            foreach ((string property, string value) in identifiers)
+            {
+                if (property == searchProperty || claims?[property] is not JsonArray)
+                {
+                    continue;
+                }
+
+                if (!ClaimContains(claims, property, value))
+                {
+                    conflictingClaim = true;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static IEnumerable<string> ClaimValues(JsonNode? claims, string property)
         {
             if (claims?[property] is not JsonArray values)
@@ -707,6 +750,38 @@ namespace Jellyfin.Plugin.Allocine
                     yield return claimValue;
                 }
             }
+        }
+
+        private static IEnumerable<string> ClaimEntityIds(JsonNode? claims, string property)
+        {
+            if (claims?[property] is not JsonArray values)
+            {
+                yield break;
+            }
+
+            foreach (JsonNode? value in values)
+            {
+                string? entityId = value?["mainsnak"]?["datavalue"]?["value"]?["id"]?.ToString();
+                if (entityId != null && Regex.IsMatch(entityId, "^Q[1-9][0-9]*$", RegexOptions.CultureInvariant))
+                {
+                    yield return entityId;
+                }
+            }
+        }
+
+        private static HashSet<string> PreferCanonicalAllocineIds(
+            List<(string AllocineId, HashSet<string> InstanceOf)> candidates)
+        {
+            var canonical = new HashSet<string>(StringComparer.Ordinal);
+            foreach ((string allocineId, HashSet<string> instanceOf) in candidates)
+            {
+                if (!instanceOf.Overlaps(NonCanonicalWorkTypes))
+                {
+                    canonical.Add(allocineId);
+                }
+            }
+
+            return canonical.Count == 1 ? canonical : [.. candidates.Select(candidate => candidate.AllocineId)];
         }
 
         private static string NormalizeTitle(string value)

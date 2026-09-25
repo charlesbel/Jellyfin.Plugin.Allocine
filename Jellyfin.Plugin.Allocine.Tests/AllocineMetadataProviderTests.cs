@@ -84,6 +84,24 @@ public sealed class AllocineMetadataProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task TitleYearFallbackAfterExactMissWithStableIdsPersistsNativeId()
+    {
+        var movie = Movie("tt36073210", "1440098");
+        movie.Name = "Attirés malgré nous";
+        movie.OriginalTitle = "Enfrentados: Marfil";
+        movie.ProductionYear = 2026;
+        var mapping = new RecordingMappingProvider { TitleYearId = "1000020435" };
+        AllocineMetadataProvider provider = CreateProvider(mapping);
+
+        ItemUpdateType update = await provider.FetchAsync(movie, Options(), CancellationToken.None);
+
+        Assert.Equal(ItemUpdateType.MetadataImport, update);
+        Assert.Equal("1000020435", movie.GetProviderId(AllocineProviderNames.Key));
+        Assert.Equal(1, mapping.ExactCalls);
+        Assert.Equal(1, mapping.FallbackCalls);
+    }
+
+    [Fact]
     public async Task ConflictingUpstreamIdsLeaveExistingStateUntouched()
     {
         var movie = Movie("tt1234567", "123");
@@ -218,7 +236,7 @@ public sealed class AllocineMetadataProviderTests : IDisposable
         }
 
         var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
-        var mapping = new RecordingMappingProvider { TitleYearId = "999" };
+        var mapping = new RecordingMappingProvider();
         AllocineMetadataProvider provider = CreateProvider(mapping, store: store);
 
         ItemUpdateType update = await provider.FetchAsync(movie, Options(), CancellationToken.None);
@@ -226,6 +244,7 @@ public sealed class AllocineMetadataProviderTests : IDisposable
         Assert.Equal(ItemUpdateType.None, update);
         Assert.Null(movie.GetProviderId(AllocineProviderNames.Key));
         Assert.Equal(1, mapping.ExactCalls);
+        Assert.Equal(1, mapping.FallbackCalls);
     }
 
     [Fact]
@@ -249,7 +268,7 @@ public sealed class AllocineMetadataProviderTests : IDisposable
             await command.ExecuteNonQueryAsync();
         }
 
-        var mapping = new RecordingMappingProvider { TitleYearId = "999" };
+        var mapping = new RecordingMappingProvider();
         AllocineMetadataProvider provider = CreateProvider(mapping, store: store);
 
         ItemUpdateType update = await provider.FetchAsync(movie, Options(), CancellationToken.None);
@@ -257,6 +276,7 @@ public sealed class AllocineMetadataProviderTests : IDisposable
         Assert.Equal(ItemUpdateType.None, update);
         Assert.Null(movie.GetProviderId(AllocineProviderNames.Key));
         Assert.Equal(1, mapping.ExactCalls);
+        Assert.Equal(1, mapping.FallbackCalls);
     }
 
     [Fact]

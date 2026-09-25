@@ -10,7 +10,7 @@
     <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
     <Authors>]@charlesbel</Authors>
     <Description>Affiche les notes Presse et Spectateurs d'Allociné.</Description>
-    <Version>0.5.1.0</Version>
+    <Version>0.5.2.0</Version>
     <RepositoryUrl>https://github.com/charlesbel/Jellyfin.Plugin.Allocine</RepositoryUrl>
     <PathMap>$(MSBuildProjectDirectory)=/_/Jellyfin.Plugin.Allocine</PathMap>
   </PropertyGroup>
