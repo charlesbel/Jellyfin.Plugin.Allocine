@@ -58,7 +58,7 @@ namespace Jellyfin.Plugin.Allocine
             CancellationToken cancellationToken)
         {
             AllocineCacheEntry? cached = await TryReadAsync(request, cancellationToken).ConfigureAwait(false);
-            if (HasValidRatings(cached, request))
+            if (HasValidRatings(cached, request) && AllocineEditorialFlags.HasKeys(cached!.Ratings))
             {
                 return CopyRatings(cached);
             }
@@ -91,7 +91,8 @@ namespace Jellyfin.Plugin.Allocine
             try
             {
                 AllocineCacheEntry? cached = await TryReadAsync(request, cancellationToken).ConfigureAwait(false);
-                if (IsFresh(cached, request) || !IsRetryDue(cached, request))
+                if ((IsFresh(cached, request) && AllocineEditorialFlags.HasKeys(cached?.Ratings))
+                    || !IsRetryDue(cached, request))
                 {
                     return new AllocineRefreshOutcome(AllocineRefreshResult.Skipped, CopyRatings(cached));
                 }

@@ -263,7 +263,7 @@ namespace Jellyfin.Plugin.Allocine
 
                     _nextWikidataRequestAt = DateTimeOffset.UtcNow + _wikidataPacing;
                     using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.2 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
+                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.3 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
                     HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 1)
                     {
@@ -572,6 +572,11 @@ namespace Jellyfin.Plugin.Allocine
                   userRating { score(base: 5) }
                   pressReview { score(base: 5) }
                 }
+                flags {
+                  isIncontestable
+                  isClub300Approved
+                  isClubApproved
+                }
               }
             }";
             var payload = new
@@ -649,7 +654,9 @@ namespace Jellyfin.Plugin.Allocine
         private static Dictionary<string, string> ParseGraphQlRatings(string json, out bool authenticationError)
         {
             var node = JsonNode.Parse(json);
-            var stats = node?["data"]?["movie"]?["stats"];
+            var movie = node?["data"]?["movie"];
+            var stats = movie?["stats"];
+            var flags = movie?["flags"];
             var result = new Dictionary<string, string>(StringComparer.Ordinal);
             authenticationError = HasAuthenticationError(node);
 
@@ -663,7 +670,33 @@ namespace Jellyfin.Plugin.Allocine
                 result["public"] = stats["userRating"]!["score"]!.ToString();
             }
 
+            bool classiques = IsJsonTrue(flags?["isIncontestable"]);
+            bool clubAime = IsJsonTrue(flags?["isClub300Approved"])
+                || IsJsonTrue(flags?["isClubApproved"])
+                || IsJsonTrue(flags?["isClubApproved"]?["club300"]);
+            if (result.Count == 0 && !classiques && !clubAime)
+            {
+                return result;
+            }
+
+            AllocineEditorialFlags.Apply(result, classiques, clubAime);
             return result;
+        }
+
+        private static bool IsJsonTrue(JsonNode? node)
+        {
+            if (node is not JsonValue value)
+            {
+                return false;
+            }
+
+            if (value.TryGetValue(out bool flag))
+            {
+                return flag;
+            }
+
+            return value.TryGetValue(out string? text)
+                && (string.Equals(text, "true", StringComparison.OrdinalIgnoreCase) || text == "1");
         }
 
         private static bool HasAuthenticationError(JsonNode? node)

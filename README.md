@@ -21,7 +21,7 @@
 
 ## 📖 Overview
 
-The plugin shows AlloCiné **Press** and **Spectator** scores on movie and series pages, with the official icons (for example `3,5/5`).
+The plugin shows AlloCiné **Press** and **Spectator** scores on movie and series pages, with the official icons (for example `3,5/5`). Films that AlloCiné marks as **Classiques** or **Le club Aime** also get those badges next to the scores.
 
 It can also add an AlloCiné ID and a link to the AlloCiné page. You can type the ID yourself, or let the plugin fill it from IMDb / TMDb. An ID you typed is never overwritten.
 
@@ -30,6 +30,7 @@ AlloCiné scores stay as their own badges. They do not replace Jellyfin, Rotten 
 ### ✨ Key Features
 
 -   **Press and Spectator scores** with official AlloCiné icons and French number formatting.
+-   **Classiques and Le club Aime badges** when AlloCiné awards them.
 -   **Optional AlloCiné ID and link** on movies and series.
 -   **Never overwrites an ID you typed.**
 -   **Movies and series** detail pages.
@@ -43,7 +44,7 @@ AlloCiné scores stay as their own badges. They do not replace Jellyfin, Rotten 
 | _Standard Jellyfin Interface_ | _With Allociné Plugin_ |
 |  ![Before](img/without.png)   | ![After](img/with.png) |
 
-> _Note: The ratings appear next to the official certification or duration on the movie details page._
+> _Note: Press and spectator scores appear next to the certification or duration. Classiques and Le club Aime badges follow those scores when AlloCiné awards them._
 
 ---
 

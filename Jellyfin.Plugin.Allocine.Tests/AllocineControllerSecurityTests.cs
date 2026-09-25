@@ -7,6 +7,17 @@ namespace Jellyfin.Plugin.Allocine.Tests;
 public sealed class AllocineControllerSecurityTests
 {
     [Fact]
+    public void BadgeEndpointDoesNotRequireAuthenticationAndRejectsUnknownNames()
+    {
+        MethodInfo method = typeof(AllocineController).GetMethod(nameof(AllocineController.GetBadge))!;
+
+        Assert.Null(method.GetCustomAttribute<AuthorizeAttribute>());
+        ParameterInfo name = Assert.Single(method.GetParameters());
+        Assert.Equal("name", name.Name);
+        Assert.Equal(typeof(string), name.ParameterType);
+    }
+
+    [Fact]
     public void RatingsEndpointRequiresAuthentication()
     {
         MethodInfo method = typeof(AllocineController).GetMethod(nameof(AllocineController.GetRatings))!;

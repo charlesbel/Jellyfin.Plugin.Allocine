@@ -5,7 +5,7 @@ public sealed class ScriptInjectionStartupFilterTests
     [Fact]
     public void AssemblyVersionMatchesInjectedScriptCacheBuster()
     {
-        Assert.Equal(new Version(0, 5, 2, 0), typeof(ScriptInjectionStartupFilter).Assembly.GetName().Version);
+        Assert.Equal(new Version(0, 5, 3, 0), typeof(ScriptInjectionStartupFilter).Assembly.GetName().Version);
     }
 
     [Theory]
@@ -29,7 +29,7 @@ public sealed class ScriptInjectionStartupFilterTests
         string once = ScriptInjectionStartupFilter.InjectScript(html);
         string twice = ScriptInjectionStartupFilter.InjectScript(once);
 
-        Assert.Contains("<script src=\"/Allocine/Script?v=0.5.2\" defer></script>\n</body>", once, StringComparison.Ordinal);
+        Assert.Contains("<script src=\"/Allocine/Script?v=0.5.3\" defer></script>\n</body>", once, StringComparison.Ordinal);
         Assert.Equal(once, twice);
     }
 
@@ -44,7 +44,7 @@ public sealed class ScriptInjectionStartupFilterTests
 
         Assert.NotNull(method);
         string injected = Assert.IsType<string>(method.Invoke(null, [html, "/jellyfin"]));
-        Assert.Contains("src=\"/jellyfin/Allocine/Script?v=0.5.2\"", injected, StringComparison.Ordinal);
+        Assert.Contains("src=\"/jellyfin/Allocine/Script?v=0.5.3\"", injected, StringComparison.Ordinal);
     }
 
     [Fact]

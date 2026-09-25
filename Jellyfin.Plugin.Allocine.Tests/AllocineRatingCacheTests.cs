@@ -95,6 +95,41 @@ public sealed class AllocineRatingCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task CachedRatingsWithoutEditorialFlagsAreRefreshedOnTheNextRead()
+    {
+        string path = Path.Combine(_directory, "ratings.db");
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 25, 12, 0, 0, TimeSpan.Zero));
+        var initialProvider = new FakeProvider(new Dictionary<string, string> { ["public"] = "4.4" });
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        var initialService = new AllocineRatingCacheService(store, initialProvider, NullLogger<AllocineRatingCacheService>.Instance, time);
+        AllocineRatingsRequest request = Request(year: 2011);
+        await initialService.GetRatingsAsync(request, CancellationToken.None);
+        SqliteConnection.ClearAllPools();
+        await using (var connection = new SqliteConnection($"Data Source={path}"))
+        {
+            await connection.OpenAsync();
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "UPDATE ratings SET ratings_json = '{\"public\":\"4.4\"}';";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var refreshProvider = new FakeProvider(new Dictionary<string, string>
+        {
+            ["public"] = "4.4",
+            ["classiques"] = "1",
+            ["clubAime"] = "1",
+        });
+        var service = new AllocineRatingCacheService(store, refreshProvider, NullLogger<AllocineRatingCacheService>.Instance, time);
+
+        Assert.False(await service.NeedsRefreshAsync(request, CancellationToken.None));
+        Dictionary<string, string>? ratings = await service.GetRatingsAsync(request, CancellationToken.None);
+
+        Assert.Equal(1, refreshProvider.Calls);
+        Assert.Equal("1", ratings?["classiques"]);
+        Assert.Equal("1", ratings?["clubAime"]);
+    }
+
+    [Fact]
     public async Task RatingRefreshReusesFreshExactAllocineMappingAcrossServiceInstances()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
@@ -582,7 +617,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
 
         public FakeProvider(Dictionary<string, string>? result = null, bool throwOnCall = false, TimeSpan delay = default)
         {
-            _result = result;
+            _result = result == null ? null : AllocineEditorialFlags.WithDefaults(result);
             _throwOnCall = throwOnCall;
             _delay = delay;
         }
@@ -640,7 +675,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         {
             RatingCalls++;
             Assert.Equal(allocineId, resolvedAllocineId);
-            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string>(ratings));
+            return Task.FromResult<Dictionary<string, string>?>(AllocineEditorialFlags.WithDefaults(ratings));
         }
 
         public async Task<Dictionary<string, string>?> GetRatingsAsync(
@@ -690,7 +725,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
             CancellationToken cancellationToken)
         {
             RatedAllocineId = resolvedAllocineId;
-            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string>(ratings));
+            return Task.FromResult<Dictionary<string, string>?>(AllocineEditorialFlags.WithDefaults(ratings));
         }
 
         public async Task<Dictionary<string, string>?> GetRatingsAsync(
@@ -744,7 +779,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
             string mediaType,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string> { ["public"] = "4.8" });
+            return Task.FromResult<Dictionary<string, string>?>(AllocineEditorialFlags.WithDefaults(new Dictionary<string, string> { ["public"] = "4.8" }));
         }
 
         public async Task<Dictionary<string, string>?> GetRatingsAsync(
@@ -800,7 +835,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
             CancellationToken cancellationToken)
         {
             RatedAllocineId = resolvedAllocineId;
-            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string> { ["public"] = "4.8" });
+            return Task.FromResult<Dictionary<string, string>?>(AllocineEditorialFlags.WithDefaults(new Dictionary<string, string> { ["public"] = "4.8" }));
         }
 
         public async Task<Dictionary<string, string>?> GetRatingsAsync(

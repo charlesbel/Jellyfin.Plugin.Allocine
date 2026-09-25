@@ -143,7 +143,7 @@ public sealed class AllocineRefreshTaskTests
                 CancellationToken.None);
             await store.WriteAsync(
                 request,
-                new Dictionary<string, string> { ["public"] = "4.4", ["press"] = "3.7" },
+                AllocineEditorialFlags.WithDefaults(new Dictionary<string, string> { ["public"] = "4.4", ["press"] = "3.7" }),
                 DateTimeOffset.UtcNow,
                 CancellationToken.None);
 
@@ -758,7 +758,7 @@ public sealed class AllocineRefreshTaskTests
         {
             Calls++;
             return Task.FromResult<Dictionary<string, string>?>(
-                returnsNull ? null : new Dictionary<string, string> { ["public"] = "4.0" });
+                returnsNull ? null : AllocineEditorialFlags.WithDefaults(new Dictionary<string, string> { ["public"] = "4.0" }));
         }
     }
 
@@ -812,7 +812,7 @@ public sealed class AllocineRefreshTaskTests
             CancellationToken cancellationToken)
         {
             RatingCalls++;
-            return Task.FromResult<Dictionary<string, string>?>(new Dictionary<string, string>(Ratings));
+            return Task.FromResult<Dictionary<string, string>?>(AllocineEditorialFlags.WithDefaults(Ratings));
         }
 
         public async Task<Dictionary<string, string>?> GetRatingsAsync(

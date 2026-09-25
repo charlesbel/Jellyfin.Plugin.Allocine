@@ -59,6 +59,30 @@ namespace Jellyfin.Plugin.Allocine
         }
 
         /// <summary>
+        /// Serves an official AlloCiné editorial badge SVG.
+        /// </summary>
+        /// <param name="name">The badge identifier, either <c>classiques</c> or <c>club-aime</c>.</param>
+        /// <returns>The SVG file, or not found.</returns>
+        [HttpGet("Badge/{name}")]
+        [Produces("image/svg+xml")]
+        public ActionResult GetBadge(string name)
+        {
+            string? resourceName = name switch
+            {
+                "classiques" => "Jellyfin.Plugin.Allocine.Badges.classiques.svg",
+                "club-aime" => "Jellyfin.Plugin.Allocine.Badges.club-aime.svg",
+                _ => null,
+            };
+            if (resourceName == null)
+            {
+                return NotFound();
+            }
+
+            var stream = typeof(AllocineController).Assembly.GetManifestResourceStream(resourceName);
+            return stream == null ? NotFound() : File(stream, "image/svg+xml");
+        }
+
+        /// <summary>
         /// Gets the ratings for a movie or series.
         /// </summary>
         /// <param name="itemId">The stable Jellyfin item identifier.</param>

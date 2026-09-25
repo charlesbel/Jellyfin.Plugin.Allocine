@@ -55,6 +55,27 @@ public sealed class AllocineControllerAccessTests : IDisposable
     }
 
     [Fact]
+    public void BadgeEndpointServesEmbeddedSvgAndRejectsUnknownNames()
+    {
+        AllocineController controller = CreateController(
+            new Mock<ILibraryManager>(MockBehavior.Strict).Object,
+            new Mock<IUserManager>(MockBehavior.Strict).Object,
+            userId: null);
+
+        FileStreamResult classiques = Assert.IsType<FileStreamResult>(controller.GetBadge("classiques"));
+        FileStreamResult clubAime = Assert.IsType<FileStreamResult>(controller.GetBadge("club-aime"));
+        using var classiquesReader = new StreamReader(classiques.FileStream);
+        using var clubReader = new StreamReader(clubAime.FileStream);
+
+        Assert.Equal("image/svg+xml", classiques.ContentType);
+        Assert.Contains("viewBox=\"0 0 97 20\"", classiquesReader.ReadToEnd(), StringComparison.Ordinal);
+        Assert.Equal("image/svg+xml", clubAime.ContentType);
+        Assert.Contains("fill=\"#333\"", clubReader.ReadToEnd(), StringComparison.Ordinal);
+        Assert.IsType<NotFoundResult>(controller.GetBadge("../allocine.js"));
+        Assert.IsType<NotFoundResult>(controller.GetBadge("unknown"));
+    }
+
+    [Fact]
     public async Task AuthenticationWithoutAUserIdentityIsForbidden()
     {
         var userManager = new Mock<IUserManager>(MockBehavior.Strict);
