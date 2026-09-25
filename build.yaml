@@ -2,18 +2,17 @@
 name: "Allociné Ratings"
 guid: "93a5b760-3774-43b3-8d99-09a473434680"
 imageUrl: "https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/img/allocine-plugin-logo.png"
-version: "0.5.3.0"
-targetAbi: "12.0.0.0"
+version: "0.5.3"
+targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Ratings from Allociné for Jellyfin."
 description: >
-  Displays press and spectator ratings from Allociné on movie and series detail pages,
-  plus the Classiques and Le club Aime editorial badges.
+  Displays press and spectator ratings from Allociné on movie and series detail pages, plus the Classiques and Le club Aime editorial badges.
 
 category: "Metadata"
 owner: "charlesbel"
 artifacts:
   - "Jellyfin.Plugin.Allocine.dll"
 changelog: |-
-  - Show AlloCiné Classiques and Le club Aime badges next to press and spectator scores.
-  - Read movie editorial flags from the existing GraphQL query, with public-page fallback for series.
+  - feat: show AlloCiné Classiques and Le club Aime badges (#17) @charlesbel
+  - docs: keep the README in English and restore section emojis (#15) @charlesbel
