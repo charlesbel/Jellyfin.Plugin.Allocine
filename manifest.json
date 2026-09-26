@@ -3,11 +3,19 @@
         "guid": "93a5b760-3774-43b3-8d99-09a473434680",
         "name": "Allocin\u00e9 Ratings",
         "imageUrl": "https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/img/allocine-plugin-logo.png",
-        "description": "Displays press and spectator ratings from Allocin\u00e9 on movie and series detail pages, plus the Classiques and Le club Aime editorial badges.\n",
+        "description": "Displays press and spectator ratings from Allocin\u00e9 on movie and series detail pages, plus the Classiques, Le club Aime, Les Ind\u00e9s, and Club Scream editorial badges.\n",
         "overview": "Ratings from Allocin\u00e9 for Jellyfin.",
         "owner": "charlesbel",
         "category": "Metadata",
         "versions": [
+            {
+                "version": "0.6.0.0",
+                "changelog": "- Treat the AlloCin\u00e9 ID on the Jellyfin item as the source of truth for ratings.\n- Cache press/spectator scores and editorial badges by AlloCin\u00e9 ID so a manual ID correction plus metadata refresh updates notes immediately.\n- Write a missing AlloCin\u00e9 ID once and never replace an ID already on the item.\n- Upgrade the private ratings cache automatically so existing scores follow their AlloCin\u00e9 ID.\n- Show AlloCin\u00e9 Les Ind\u00e9s and Club Scream badges alongside Classiques and Le club Aime.",
+                "targetAbi": "12.0.0.0",
+                "sourceUrl": "https://github.com/charlesbel/Jellyfin.Plugin.Allocine/releases/download/v0.6.0/Jellyfin.Plugin.Allocine.zip",
+                "checksum": "78a2badf5be1f64a9148f0e327fe095d",
+                "timestamp": "2026-09-26T12:48:23Z"
+            },
             {
                 "version": "0.5.3.0",
                 "changelog": "- Show AlloCin\u00e9 Classiques and Le club Aime badges next to press and spectator scores.\n- Read movie editorial flags from the existing GraphQL query, with public-page fallback for series.",
