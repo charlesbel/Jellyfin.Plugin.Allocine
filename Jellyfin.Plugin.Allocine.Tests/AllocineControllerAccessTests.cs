@@ -76,9 +76,14 @@ public sealed class AllocineControllerAccessTests : IDisposable
         Assert.Equal("image/svg+xml", clubAime.ContentType);
         Assert.Contains("fill=\"#333\"", clubReader.ReadToEnd(), StringComparison.Ordinal);
         Assert.Equal("image/svg+xml", lesIndes.ContentType);
-        Assert.Contains("viewBox=\"0 0 40 8\"", lesIndesReader.ReadToEnd(), StringComparison.Ordinal);
+        string lesIndesSvg = lesIndesReader.ReadToEnd();
+        Assert.Contains("viewBox=\"0 0 90 20\"", lesIndesSvg, StringComparison.Ordinal);
+        Assert.Contains("fill=\"#333\"", lesIndesSvg, StringComparison.Ordinal);
+        Assert.Contains("rx=\"10\"", lesIndesSvg, StringComparison.Ordinal);
         Assert.Equal("image/svg+xml", clubScream.ContentType);
-        Assert.Contains("data:image/png;base64,", screamReader.ReadToEnd(), StringComparison.Ordinal);
+        string clubScreamSvg = screamReader.ReadToEnd();
+        Assert.Contains("data:image/png;base64,", clubScreamSvg, StringComparison.Ordinal);
+        Assert.Contains("rx=\"20\"", clubScreamSvg, StringComparison.Ordinal);
         Assert.IsType<NotFoundResult>(controller.GetBadge("../allocine.js"));
         Assert.IsType<NotFoundResult>(controller.GetBadge("unknown"));
     }

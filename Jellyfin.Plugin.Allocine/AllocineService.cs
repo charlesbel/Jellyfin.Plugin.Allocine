@@ -263,7 +263,7 @@ namespace Jellyfin.Plugin.Allocine
 
                     _nextWikidataRequestAt = DateTimeOffset.UtcNow + _wikidataPacing;
                     using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.6.0 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
+                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.6.1 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
                     HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 1)
                     {

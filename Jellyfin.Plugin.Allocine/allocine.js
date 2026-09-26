@@ -199,7 +199,7 @@
         const script = document.querySelector("script[src*=\"Allocine/Script\"]");
         const src = script && script.src;
         if (src) {
-            return src.replace(/Script(\?.*)?$/, "Badge/" + name);
+            return src.replace(/Script(\?.*)?$/, "Badge/" + name + "$1");
         }
         if (typeof ApiClient !== "undefined" && typeof ApiClient.getUrl === "function") {
             return ApiClient.getUrl("Allocine/Badge/" + name);
