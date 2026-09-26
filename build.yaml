@@ -2,7 +2,7 @@
 name: "Allociné Ratings"
 guid: "93a5b760-3774-43b3-8d99-09a473434680"
 imageUrl: "https://raw.githubusercontent.com/charlesbel/Jellyfin.Plugin.Allocine/master/img/allocine-plugin-logo.png"
-version: "0.6.0.0"
+version: "0.6.1.0"
 targetAbi: "12.0.0.0"
 framework: "net10.0"
 overview: "Ratings from Allociné for Jellyfin."
@@ -15,8 +15,4 @@ owner: "charlesbel"
 artifacts:
   - "Jellyfin.Plugin.Allocine.dll"
 changelog: |-
-  - Treat the AlloCiné ID on the Jellyfin item as the source of truth for ratings.
-  - Cache press/spectator scores and editorial badges by AlloCiné ID so a manual ID correction plus metadata refresh updates notes immediately.
-  - Write a missing AlloCiné ID once and never replace an ID already on the item.
-  - Upgrade the private ratings cache automatically so existing scores follow their AlloCiné ID.
-  - Show AlloCiné Les Indés and Club Scream badges alongside Classiques and Le club Aime.
+  - Give Les Indés and Club Scream the same rounded pill container as Classiques and Le club Aime.
