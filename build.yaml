@@ -2,17 +2,17 @@
 name: "Allociné Ratings"
 guid: "93a5b760-3774-43b3-8d99-09a473434680"
 imageUrl: "https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@master/img/allocine-plugin-logo.png"
-version: "0.6.2.0"
-targetAbi: "12.0.0.0"
+version: "0.6.1"
+targetAbi: "12.1.0.0"
 framework: "net10.0"
 overview: "Ratings from Allociné for Jellyfin."
 description: >
-  Displays press and spectator ratings from Allociné on movie and series detail pages,
-  plus the Classiques, Le club Aime, Les Indés, and Club Scream editorial badges.
+  Displays press and spectator ratings from Allociné on movie and series detail pages, plus the Classiques, Le club Aime, Les Indés, and Club Scream editorial badges.
 
 category: "Metadata"
 owner: "charlesbel"
 artifacts:
   - "Jellyfin.Plugin.Allocine.dll"
 changelog: |-
-  - Load editorial gelules and catalog artwork from jsDelivr, like press and spectator logos.
+  - feat: load editorial gelules and catalog art from jsDelivr (#22) @charlesbel
+  - fix: wrap Les Indés and Club Scream badges in rounded pills (#20) @charlesbel
