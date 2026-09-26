@@ -50,6 +50,25 @@ public sealed class AllocineRatingsParserTests
     }
 
     [Fact]
+    public void ParseExtractsLesIndesAndClubScreamBadgesFromPublicMoviePage()
+    {
+        const string html = RatingsHtml + """
+            <div class="gelule-holder">
+              <span class="ACrL2ZACrpbG0vbGVzaW5kZXMv button button-sm button-les-indes" data-jan="{&quot;position_name&quot;:&quot;gelule_lesindes&quot;}"></span>
+              <span class="button button-sm button-club-scream" data-jan="{&quot;position_name&quot;:&quot;gelule_clubscream&quot;}"></span>
+            </div>
+            """;
+
+        Dictionary<string, string>? ratings = AllocineRatingsParser.Parse(html);
+
+        Assert.NotNull(ratings);
+        Assert.Equal("1", ratings["lesIndes"]);
+        Assert.Equal("1", ratings["clubScream"]);
+        Assert.Equal("0", ratings["classiques"]);
+        Assert.Equal("0", ratings["clubAime"]);
+    }
+
+    [Fact]
     public void ParseReturnsEditorialBadgesEvenWithoutNumericRatings()
     {
         const string html = """
@@ -90,6 +109,8 @@ public sealed class AllocineRatingsParserTests
             <style>
             .button-classiques-gold{background:url(https://assets.allocine.fr/skin/img/classiques-gold-pill.svg)}
             .button-club-300{background:url(https://assets.allocine.fr/skin/img/club-allocine-pill.svg)}
+            .button-les-indes{background:url(https://assets.allocine.fr/skin/img/les-indes-pill.svg)}
+            .button-club-scream{background:url(https://assets.allocine.fr/skin/img/club-scream-pill.png)}
             </style>
             """;
 
@@ -99,6 +120,8 @@ public sealed class AllocineRatingsParserTests
         Assert.Equal("0", ratings["classiques"]);
         Assert.Equal("0", ratings["clubAime"]);
         Assert.Equal("3.6", ratings["presse"]);
+        Assert.Equal("0", ratings["lesIndes"]);
+        Assert.Equal("0", ratings["clubScream"]);
     }
 
     [Theory]

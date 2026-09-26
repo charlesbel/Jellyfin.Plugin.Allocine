@@ -88,7 +88,8 @@ namespace Jellyfin.Plugin.Allocine
             }
 
             bool nativeChanged = false;
-            if (Configuration.WriteNativeAllocineIds)
+            string? currentId = item.GetProviderId(AllocineProviderNames.Key);
+            if (Configuration.WriteNativeAllocineIds && !AllocineProviderNames.IsValidId(currentId))
             {
                 try
                 {
@@ -98,11 +99,6 @@ namespace Jellyfin.Plugin.Allocine
                         nativeChanged = await _cache
                             .TryWriteNativeIdAsync(item, request, exactId, cancellationToken)
                             .ConfigureAwait(false);
-                        string? current = item.GetProviderId(AllocineProviderNames.Key);
-                        if (AllocineProviderNames.IsValidId(current))
-                        {
-                            request = request with { AllocineId = current };
-                        }
                     }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -113,6 +109,12 @@ namespace Jellyfin.Plugin.Allocine
                 {
                     _logger.LogWarning(ex, "[Allocine] Exact identity resolution failed for item {ItemId}", item.Id);
                 }
+            }
+
+            currentId = item.GetProviderId(AllocineProviderNames.Key);
+            if (AllocineProviderNames.IsValidId(currentId))
+            {
+                request = request with { AllocineId = currentId };
             }
 
             try

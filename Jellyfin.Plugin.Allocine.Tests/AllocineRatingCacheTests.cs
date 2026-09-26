@@ -74,14 +74,87 @@ public sealed class AllocineRatingCacheTests : IDisposable
     }
 
     [Fact]
+    public async Task FailedLookupRetriesWhenAnAllocineIdBecomesKnown()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 25, 10, 36, 0, TimeSpan.Zero));
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        var failingProvider = new FakeProvider(result: null);
+        var failingService = new AllocineRatingCacheService(store, failingProvider, NullLogger<AllocineRatingCacheService>.Instance, time);
+
+        Assert.Null(await failingService.GetRatingsAsync(Request(), CancellationToken.None));
+        Assert.Equal(1, failingProvider.Calls);
+
+        var successProvider = new FakeProvider(new Dictionary<string, string> { ["public"] = "2.4" });
+        var retryService = new AllocineRatingCacheService(store, successProvider, NullLogger<AllocineRatingCacheService>.Instance, time);
+        Dictionary<string, string>? ratings = await retryService.GetRatingsAsync(
+            Request() with { AllocineId = "1000020435" },
+            CancellationToken.None);
+
+        Assert.Equal("2.4", ratings?["public"]);
+        Assert.Equal(1, successProvider.Calls);
+    }
+
+    [Fact]
+    public async Task FailedRetryWithKnownAllocineIdUsesBackoff()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 25, 10, 36, 0, TimeSpan.Zero));
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        var failingProvider = new FakeProvider(result: null);
+        var service = new AllocineRatingCacheService(store, failingProvider, NullLogger<AllocineRatingCacheService>.Instance, time);
+
+        Assert.Null(await service.GetRatingsAsync(Request(), CancellationToken.None));
+        Assert.Null(await service.GetRatingsAsync(
+            Request() with { AllocineId = "1000020435" },
+            CancellationToken.None));
+        Assert.Equal(2, failingProvider.Calls);
+
+        Assert.Null(await service.GetRatingsAsync(
+            Request() with { AllocineId = "1000020435" },
+            CancellationToken.None));
+        Assert.Equal(2, failingProvider.Calls);
+    }
+
+    [Fact]
+    public async Task FailedLookupRetriesWhenAFreshMappingAppears()
+    {
+        var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 25, 10, 36, 0, TimeSpan.Zero));
+        string path = Path.Combine(_directory, "ratings.db");
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        var failingService = new AllocineRatingCacheService(
+            store,
+            new FakeProvider(result: null),
+            NullLogger<AllocineRatingCacheService>.Instance,
+            time);
+
+        Assert.Null(await failingService.GetRatingsAsync(Request(), CancellationToken.None));
+
+        await store.WriteMappingAsync(
+            Request(),
+            "1000012412",
+            time.GetUtcNow(),
+            AllocineResolutionSource.ExactIdentifiers,
+            CancellationToken.None);
+
+        var mappedProvider = new SplitFakeProvider("1000012412", new Dictionary<string, string> { ["public"] = "2.0" });
+        var retryService = new AllocineRatingCacheService(store, mappedProvider, NullLogger<AllocineRatingCacheService>.Instance, time);
+        Dictionary<string, string>? ratings = await retryService.GetRatingsAsync(Request(), CancellationToken.None);
+
+        Assert.Equal("2.0", ratings?["public"]);
+        Assert.Equal(1, mappedProvider.RatingCalls);
+        Assert.Equal(0, mappedProvider.ResolveCalls);
+    }
+
+    [Fact]
     public async Task AdaptiveFreshnessRefreshesNewReleasesMoreOftenThanCatalogMovies()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
         var provider = new FakeProvider(new Dictionary<string, string> { ["public"] = "4.0" });
         var store = new AllocineRatingStore(Path.Combine(_directory, "ratings.db"), NullLogger<AllocineRatingStore>.Instance);
         var service = new AllocineRatingCacheService(store, provider, NullLogger<AllocineRatingCacheService>.Instance, time);
-        AllocineRatingsRequest newRelease = Request(year: 2026, itemId: "new-release");
-        AllocineRatingsRequest catalogMovie = Request(year: 2010, itemId: "catalog-movie");
+        AllocineRatingsRequest newRelease = Request(year: 2026, itemId: "new-release") with { AllocineId = "1001" };
+        AllocineRatingsRequest catalogMovie = Request(year: 2010, itemId: "catalog-movie") with { AllocineId = "1002" };
 
         await service.GetRatingsAsync(newRelease, CancellationToken.None);
         await service.GetRatingsAsync(catalogMovie, CancellationToken.None);
@@ -261,12 +334,12 @@ public sealed class AllocineRatingCacheTests : IDisposable
         var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
         AllocineCacheEntry? entry = await store.ReadAsync(request, CancellationToken.None);
 
-        Assert.Equal("4.2", entry?.Ratings?["public"]);
+        Assert.Null(entry);
         await using var migrated = new SqliteConnection($"Data Source={path}");
         await migrated.OpenAsync();
         await using SqliteCommand version = migrated.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(5L, await version.ExecuteScalarAsync());
+        Assert.Equal(6L, await version.ExecuteScalarAsync());
     }
 
     [Theory]
@@ -275,7 +348,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
     public async Task VersionTwoOrThreeMigrationDropsTransientFailuresButKeepsRatings(int priorVersion)
     {
         string path = Path.Combine(_directory, "ratings.db");
-        AllocineRatingsRequest rated = Request(tmdbId: "123", itemId: "0123456789abcdef0123456789abcdef");
+        AllocineRatingsRequest rated = Request(tmdbId: "123", itemId: "0123456789abcdef0123456789abcdef") with { AllocineId = "190918" };
         AllocineRatingsRequest failed = Request(tmdbId: "456", itemId: "fedcba9876543210fedcba9876543210");
         var originalStore = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
         await originalStore.WriteAsync(
@@ -307,7 +380,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         Assert.Equal(0L, await failures.ExecuteScalarAsync());
         await using SqliteCommand version = migrated.CreateCommand();
         version.CommandText = "PRAGMA user_version;";
-        Assert.Equal(5L, await version.ExecuteScalarAsync());
+        Assert.Equal(6L, await version.ExecuteScalarAsync());
     }
 
     [Fact]
@@ -411,7 +484,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         {
             await connection.OpenAsync();
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = "PRAGMA user_version=6;";
+            command.CommandText = "PRAGMA user_version=7;";
             await command.ExecuteNonQueryAsync();
         }
 
@@ -423,7 +496,160 @@ public sealed class AllocineRatingCacheTests : IDisposable
     }
 
     [Fact]
-    public async Task ExpiredExactMappingIsReResolvedInsteadOfTrustingTheNativeId()
+    public async Task SchemaFiveDatabaseMigratesRatingsOntoTheAllocineIdKey()
+    {
+        Directory.CreateDirectory(_directory);
+        string path = Path.Combine(_directory, "ratings.db");
+        AllocineRatingsRequest preserved = Request(itemId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") with { AllocineId = "190918" };
+        AllocineRatingsRequest otherItem = Request(itemId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", tmdbId: "999") with { AllocineId = "190918" };
+        AllocineRatingsRequest idLessMiss = Request(itemId: "cccccccccccccccccccccccccccccccc", tmdbId: "456");
+        AllocineRatingsRequest knownIdMiss = Request(itemId: "dddddddddddddddddddddddddddddddd", tmdbId: "789") with { AllocineId = "1000020435" };
+        await using (var connection = new SqliteConnection($"Data Source={path}"))
+        {
+            await connection.OpenAsync();
+            await using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE ratings (
+                    item_key TEXT PRIMARY KEY NOT NULL,
+                    identity_key TEXT NOT NULL,
+                    media_type TEXT NOT NULL,
+                    jellyfin_item_id TEXT NULL,
+                    imdb_id TEXT NULL,
+                    tmdb_id TEXT NULL,
+                    title TEXT NOT NULL,
+                    original_title TEXT NULL,
+                    production_year INTEGER NOT NULL,
+                    found INTEGER NOT NULL,
+                    ratings_json TEXT NULL,
+                    fetched_utc TEXT NOT NULL,
+                    last_attempt_utc TEXT NULL,
+                    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+                    allocine_id TEXT NULL
+                );
+                CREATE TABLE mappings (
+                    identity_key TEXT PRIMARY KEY NOT NULL,
+                    media_type TEXT NOT NULL,
+                    imdb_id TEXT NULL,
+                    tmdb_id TEXT NULL,
+                    allocine_id TEXT NOT NULL,
+                    resolved_utc TEXT NOT NULL,
+                    source TEXT NOT NULL DEFAULT 'ExactIdentifiers'
+                );
+                CREATE TABLE native_writes (
+                    jellyfin_item_id TEXT PRIMARY KEY NOT NULL,
+                    allocine_id TEXT NOT NULL,
+                    identity_key TEXT NOT NULL,
+                    written_utc TEXT NOT NULL
+                );
+                INSERT INTO ratings VALUES (
+                    'jellyfin:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', $identity_key, 'Movie',
+                    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'tt1234567', '123',
+                    'Example', 'Example', 2024, 1, '{"public":"4.2"}', $fetched_utc,
+                    $fetched_utc, 0, '190918');
+                INSERT INTO ratings VALUES (
+                    'jellyfin:cccccccccccccccccccccccccccccccc', $miss_identity, 'Movie',
+                    'cccccccccccccccccccccccccccccccc', 'tt1234567', '456',
+                    'Example', 'Example', 2024, 0, NULL, $fetched_utc,
+                    $fetched_utc, 3, NULL);
+                INSERT INTO ratings VALUES (
+                    'jellyfin:dddddddddddddddddddddddddddddddd', $known_miss_identity, 'Movie',
+                    'dddddddddddddddddddddddddddddddd', 'tt36073210', '789',
+                    'Example', 'Example', 2024, 0, NULL, $fetched_utc,
+                    $fetched_utc, 3, '1000020435');
+                INSERT INTO mappings VALUES (
+                    $identity_key, 'Movie', 'tt1234567', '123', '190918', $fetched_utc, 'ExactIdentifiers');
+                INSERT INTO native_writes VALUES (
+                    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '190918', $identity_key, $fetched_utc);
+                PRAGMA user_version=5;
+                """;
+            command.Parameters.AddWithValue("$identity_key", AllocineRatingStore.IdentityKey(preserved));
+            command.Parameters.AddWithValue("$miss_identity", AllocineRatingStore.IdentityKey(idLessMiss));
+            command.Parameters.AddWithValue("$known_miss_identity", AllocineRatingStore.IdentityKey(knownIdMiss));
+            command.Parameters.AddWithValue("$fetched_utc", DateTimeOffset.UtcNow.ToString("O"));
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        AllocineCacheEntry? shared = await store.ReadAsync(otherItem, CancellationToken.None);
+        AllocineCacheEntry? dropped = await store.ReadAsync(idLessMiss, CancellationToken.None);
+        AllocineCacheEntry? droppedKnownMiss = await store.ReadAsync(knownIdMiss, CancellationToken.None);
+        AllocineMappingEntry? mapping = await store.ReadMappingAsync(preserved, CancellationToken.None);
+        AllocineNativeWriteEntry? provenance = await store.ReadNativeWriteAsync(preserved.ItemId, CancellationToken.None);
+
+        Assert.Equal("4.2", shared?.Ratings?["public"]);
+        Assert.Equal("190918", shared?.AllocineId);
+        Assert.Null(dropped);
+        Assert.Null(droppedKnownMiss);
+        Assert.Equal("190918", mapping?.AllocineId);
+        Assert.Equal("190918", provenance?.AllocineId);
+        await using var migrated = new SqliteConnection($"Data Source={path}");
+        await migrated.OpenAsync();
+        await using SqliteCommand version = migrated.CreateCommand();
+        version.CommandText = "PRAGMA user_version;";
+        Assert.Equal(6L, await version.ExecuteScalarAsync());
+        await using SqliteCommand keys = migrated.CreateCommand();
+        keys.CommandText = "SELECT rating_key FROM ratings ORDER BY rating_key;";
+        await using SqliteDataReader reader = await keys.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal("MOVIE|id:190918", reader.GetString(0));
+        Assert.False(await reader.ReadAsync());
+    }
+
+    [Fact]
+    public async Task SchemaFiveProductionCopyMigratesPositiveAllocineIdRows()
+    {
+        string? source = Environment.GetEnvironmentVariable("ALLOCINE_SCHEMA5_DB");
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(_directory);
+        string path = Path.Combine(_directory, "production.db");
+        File.Copy(source, path, overwrite: true);
+        var store = new AllocineRatingStore(path, NullLogger<AllocineRatingStore>.Instance);
+        AllocineRatingsRequest sample = Request() with { AllocineId = "190918" };
+        _ = await store.ReadAsync(sample, CancellationToken.None);
+
+        await using var migrated = new SqliteConnection($"Data Source={path}");
+        await migrated.OpenAsync();
+        await using SqliteCommand version = migrated.CreateCommand();
+        version.CommandText = "PRAGMA user_version;";
+        Assert.Equal(6L, await version.ExecuteScalarAsync());
+        await using SqliteCommand count = migrated.CreateCommand();
+        count.CommandText = "SELECT COUNT(*) FROM ratings WHERE found=1 AND allocine_id IS NOT NULL;";
+        Assert.True((long)(await count.ExecuteScalarAsync())! > 0);
+        await using SqliteCommand checkpoint = migrated.CreateCommand();
+        checkpoint.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+        await checkpoint.ExecuteNonQueryAsync();
+        string? output = Environment.GetEnvironmentVariable("ALLOCINE_SCHEMA5_OUT");
+        if (!string.IsNullOrWhiteSpace(output))
+        {
+            File.Copy(path, output, overwrite: true);
+        }
+    }
+
+    [Fact]
+    public async Task TwoItemsWithTheSameAllocineIdShareOneCachedRating()
+    {
+        var provider = new FakeProvider(new Dictionary<string, string> { ["public"] = "4.2" });
+        var store = new AllocineRatingStore(Path.Combine(_directory, "ratings.db"), NullLogger<AllocineRatingStore>.Instance);
+        var service = new AllocineRatingCacheService(store, provider, NullLogger<AllocineRatingCacheService>.Instance);
+        AllocineRatingsRequest first = Request(itemId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") with { AllocineId = "190918" };
+        AllocineRatingsRequest second = Request(itemId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", tmdbId: "999") with { AllocineId = "190918" };
+
+        Assert.Equal("4.2", (await service.GetRatingsAsync(first, CancellationToken.None))?["public"]);
+        var secondProvider = new FakeProvider(throwOnCall: true);
+        var secondService = new AllocineRatingCacheService(store, secondProvider, NullLogger<AllocineRatingCacheService>.Instance);
+        Dictionary<string, string>? shared = await secondService.GetRatingsAsync(second, CancellationToken.None);
+
+        Assert.Equal("4.2", shared?["public"]);
+        Assert.Equal(1, provider.Calls);
+        Assert.Equal(0, secondProvider.Calls);
+    }
+
+    [Fact]
+    public async Task NativeAllocineIdIsUsedForRatingsWithoutReResolvingAnExpiredMapping()
     {
         var time = new ManualTimeProvider(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero));
         string path = Path.Combine(_directory, "ratings.db");
@@ -454,10 +680,10 @@ public sealed class AllocineRatingCacheTests : IDisposable
 
         Assert.Equal(AllocineRefreshResult.Updated, outcome.Result);
         Assert.Equal("4.8", outcome.Ratings?["public"]);
-        Assert.Equal("222", provider.RatedAllocineId);
-        Assert.Equal(1, provider.ExactCalls);
+        Assert.Equal("111", provider.RatedAllocineId);
+        Assert.Equal(0, provider.ExactCalls);
         AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
-        Assert.Equal("222", mapping?.AllocineId);
+        Assert.Equal("111", mapping?.AllocineId);
         Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
     }
 
@@ -491,11 +717,12 @@ public sealed class AllocineRatingCacheTests : IDisposable
 
         AllocineRefreshOutcome outcome = await service.RefreshIfNeededAsync(request, CancellationToken.None);
 
-        Assert.Equal(AllocineRefreshResult.Failed, outcome.Result);
+        Assert.Equal(AllocineRefreshResult.Updated, outcome.Result);
+        Assert.Equal("4.8", outcome.Ratings?["public"]);
         AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
         Assert.Equal("111", mapping?.AllocineId);
         Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
-        Assert.Equal(1, provider.ExactCalls);
+        Assert.Equal(0, provider.ExactCalls);
         Assert.Equal(0, provider.TitleYearCalls);
     }
 
@@ -532,7 +759,7 @@ public sealed class AllocineRatingCacheTests : IDisposable
         AllocineMappingEntry? mapping = await store.ReadMappingAsync(request, CancellationToken.None);
         Assert.Equal("111", mapping?.AllocineId);
         Assert.Equal(AllocineResolutionSource.ExactIdentifiers, mapping?.Source);
-        Assert.Equal(1, provider.ExactCalls);
+        Assert.Equal(0, provider.ExactCalls);
         Assert.Equal(0, provider.TitleYearCalls);
         Assert.Equal("111", provider.RatedAllocineId);
         Assert.Equal(AllocineRefreshResult.Updated, outcome.Result);

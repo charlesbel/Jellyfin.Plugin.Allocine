@@ -263,7 +263,7 @@ namespace Jellyfin.Plugin.Allocine
 
                     _nextWikidataRequestAt = DateTimeOffset.UtcNow + _wikidataPacing;
                     using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.5.3 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
+                    request.Headers.UserAgent.ParseAdd("Jellyfin.Plugin.Allocine/0.6.0 (+https://github.com/charlesbel/Jellyfin.Plugin.Allocine)");
                     HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
                     if (response.StatusCode != HttpStatusCode.TooManyRequests || attempt >= 1)
                     {
@@ -576,6 +576,10 @@ namespace Jellyfin.Plugin.Allocine
                   isIncontestable
                   isClub300Approved
                   isClubApproved
+                  isIndelible
+                  isIndependent
+                  isLesIndes
+                  isClubScream
                 }
               }
             }";
@@ -674,12 +678,18 @@ namespace Jellyfin.Plugin.Allocine
             bool clubAime = IsJsonTrue(flags?["isClub300Approved"])
                 || IsJsonTrue(flags?["isClubApproved"])
                 || IsJsonTrue(flags?["isClubApproved"]?["club300"]);
-            if (result.Count == 0 && !classiques && !clubAime)
+            bool lesIndes = IsJsonTrue(flags?["isIndelible"])
+                || IsJsonTrue(flags?["isIndependent"])
+                || IsJsonTrue(flags?["isLesIndes"]);
+            bool clubScream = IsJsonTrue(flags?["isClubScream"])
+                || IsJsonTrue(flags?["isClubApproved"]?["scream"])
+                || IsJsonTrue(flags?["isClubApproved"]?["clubScream"]);
+            if (result.Count == 0 && !classiques && !clubAime && !lesIndes && !clubScream)
             {
                 return result;
             }
 
-            AllocineEditorialFlags.Apply(result, classiques, clubAime);
+            AllocineEditorialFlags.Apply(result, classiques, clubAime, lesIndes, clubScream);
             return result;
         }
 

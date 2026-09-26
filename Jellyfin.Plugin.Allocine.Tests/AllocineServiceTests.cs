@@ -219,10 +219,52 @@ public sealed class AllocineServiceTests
         Assert.Equal("4.37", ratings["public"]);
         Assert.Equal("1", ratings["classiques"]);
         Assert.Equal("1", ratings["clubAime"]);
+        Assert.Equal("0", ratings["lesIndes"]);
+        Assert.Equal("0", ratings["clubScream"]);
         CapturedRequest graphRequest = Assert.Single(handler.Requests, request => request.RequestUri?.Host == "graph.allocine.fr");
         Assert.Contains("isIncontestable", graphRequest.Body, StringComparison.Ordinal);
         Assert.Contains("isClub300Approved", graphRequest.Body, StringComparison.Ordinal);
         Assert.Contains("isClubApproved", graphRequest.Body, StringComparison.Ordinal);
+        Assert.Contains("isIndelible", graphRequest.Body, StringComparison.Ordinal);
+        Assert.Contains("isLesIndes", graphRequest.Body, StringComparison.Ordinal);
+        Assert.Contains("isClubScream", graphRequest.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetRatingsReadsLesIndesFlagFromGraphQl()
+    {
+        const string wikidataSearch = """
+            {"query":{"search":[{"title":"Q140958739"}]}}
+            """;
+        const string wikidataEntity = """
+            {"entities":{"Q140958739":{"claims":{"P345":[{"mainsnak":{"datavalue":{"value":"tt36073210"}}}],"P4947":[{"mainsnak":{"datavalue":{"value":"1440098"}}}],"P1265":[{"mainsnak":{"datavalue":{"value":"1000028074"}}}]}}}}
+            """;
+        var handler = new QueueHttpMessageHandler(
+            JsonResponse(HttpStatusCode.OK, wikidataSearch),
+            JsonResponse(HttpStatusCode.OK, wikidataEntity),
+            JsonResponse(HttpStatusCode.OK, wikidataSearch),
+            JsonResponse(HttpStatusCode.OK, wikidataEntity),
+            CheckinResponse(1, 2),
+            TextResponse(HttpStatusCode.OK, "token=fcm-token"),
+            JsonResponse(
+                HttpStatusCode.OK,
+                """{"data":{"movie":{"stats":{"pressReview":{"score":3.6},"userRating":{"score":3.5}},"flags":{"isIncontestable":false,"isClub300Approved":false,"isIndelible":true,"isClubScream":true}}}}"""));
+        using var httpClient = new HttpClient(handler);
+        using var service = new AllocineService(NullLogger<AllocineService>.Instance, httpClient);
+
+        Dictionary<string, string>? ratings = await service.GetRatings(
+            "Écrire la vie",
+            "Écrire la vie",
+            2026,
+            "Movie",
+            "tt36073210",
+            "1440098");
+
+        Assert.NotNull(ratings);
+        Assert.Equal("1", ratings["lesIndes"]);
+        Assert.Equal("1", ratings["clubScream"]);
+        Assert.Equal("0", ratings["classiques"]);
+        Assert.Equal("0", ratings["clubAime"]);
     }
 
     [Fact]

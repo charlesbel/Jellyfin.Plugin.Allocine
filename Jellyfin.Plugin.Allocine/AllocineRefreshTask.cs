@@ -228,6 +228,11 @@ namespace Jellyfin.Plugin.Allocine
                 return false;
             }
 
+            if (AllocineProviderNames.IsValidId(item.GetProviderId(AllocineProviderNames.Key)))
+            {
+                return false;
+            }
+
             string? exactId = await _cacheService
                 .GetExactAllocineIdAsync(request, cancellationToken)
                 .ConfigureAwait(false);

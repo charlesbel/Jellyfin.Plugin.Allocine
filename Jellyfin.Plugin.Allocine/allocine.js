@@ -178,6 +178,12 @@
         if (isEditorialPresent(data.clubAime)) {
             group.appendChild(createEditorialBadge("club-aime", "Le club Aime"));
         }
+        if (isEditorialPresent(data.lesIndes)) {
+            group.appendChild(createEditorialBadge("les-indes", "Les Indés"));
+        }
+        if (isEditorialPresent(data.clubScream)) {
+            group.appendChild(createEditorialBadge("club-scream", "Club Scream"));
+        }
 
         if (group.children.length > 0) {
             targetElement.appendChild(group);
