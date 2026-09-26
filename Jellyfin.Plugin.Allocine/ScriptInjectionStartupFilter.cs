@@ -65,7 +65,7 @@ namespace Jellyfin.Plugin.Allocine
 
             int bodyEnd = html.LastIndexOf("</body>", StringComparison.OrdinalIgnoreCase);
             string normalizedPathBase = pathBase == "/" ? string.Empty : pathBase.TrimEnd('/');
-            string scriptTag = $"<script src=\"{normalizedPathBase}{ScriptPath}?v=0.6.1\" defer></script>";
+            string scriptTag = $"<script src=\"{normalizedPathBase}{ScriptPath}?v=0.6.2\" defer></script>";
             return bodyEnd < 0
                 ? html
                 : string.Concat(html.AsSpan(0, bodyEnd), scriptTag, "\n", html.AsSpan(bodyEnd));

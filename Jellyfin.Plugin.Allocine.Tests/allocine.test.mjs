@@ -150,9 +150,13 @@ test('editorial badges render after press and spectator ratings', async () => {
     assert.deepEqual(harness.badges.map(badge => badge.textContent).filter(Boolean), ['3,7/5', '4,4/5']);
     assert.equal(harness.badges[2].className.includes('allocine-editorial-badge'), true);
     assert.equal(harness.badges[2].title, 'Classiques AlloCiné');
-    assert.match(harness.badges[2].children[0].src, /Allocine\/Badge\/classiques/);
+    assert.equal(
+        harness.badges[2].children[0].src,
+        'https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@master/img/allocine-classiques.svg');
     assert.equal(harness.badges[3].title, 'Le club Aime');
-    assert.match(harness.badges[3].children[0].src, /Allocine\/Badge\/club-aime/);
+    assert.equal(
+        harness.badges[3].children[0].src,
+        'https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@master/img/allocine-club-aime.svg');
     assert.deepEqual(
         harness.visualOrder.map(element => element.textContent || element.title || element.id),
         ['3,7/5', '4,4/5', 'Classiques AlloCiné', 'Le club Aime', 'native-rating']);
@@ -172,9 +176,13 @@ test('les indes and club scream badges render after club aime', async () => {
 
     assert.equal(harness.badges.length, 4);
     assert.equal(harness.badges[2].title, 'Les Indés');
-    assert.match(harness.badges[2].children[0].src, /Allocine\/Badge\/les-indes/);
+    assert.equal(
+        harness.badges[2].children[0].src,
+        'https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@master/img/allocine-les-indes.svg');
     assert.equal(harness.badges[3].title, 'Club Scream');
-    assert.match(harness.badges[3].children[0].src, /Allocine\/Badge\/club-scream/);
+    assert.equal(
+        harness.badges[3].children[0].src,
+        'https://cdn.jsdelivr.net/gh/charlesbel/Jellyfin.Plugin.Allocine@master/img/allocine-club-scream.svg');
 });
 
 function deferred() {

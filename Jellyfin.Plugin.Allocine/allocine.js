@@ -9,6 +9,10 @@
         logos: {
             presse: "allocine_crit.png",
             spectateur: "allocine_user.png",
+            classiques: "allocine-classiques.svg",
+            "club-aime": "allocine-club-aime.svg",
+            "les-indes": "allocine-les-indes.svg",
+            "club-scream": "allocine-club-scream.svg",
         },
     };
 
@@ -196,15 +200,8 @@
     }
 
     function badgeUrl(name) {
-        const script = document.querySelector("script[src*=\"Allocine/Script\"]");
-        const src = script && script.src;
-        if (src) {
-            return src.replace(/Script(\?.*)?$/, "Badge/" + name + "$1");
-        }
-        if (typeof ApiClient !== "undefined" && typeof ApiClient.getUrl === "function") {
-            return ApiClient.getUrl("Allocine/Badge/" + name);
-        }
-        return "";
+        const file = CONFIG.logos[name];
+        return file ? CONFIG.logoBase + file : "";
     }
 
     function createEditorialBadge(name, label) {
