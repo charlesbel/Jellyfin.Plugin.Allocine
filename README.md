@@ -21,18 +21,18 @@
 
 ## 📖 Overview
 
-The plugin shows AlloCiné **Press** and **Spectator** scores on movie and series pages, with the official icons (for example `3,5/5`). Films that AlloCiné marks as **Classiques** or **Le club Aime** also get those badges next to the scores.
+The plugin shows AlloCiné **Press** and **Spectator** scores on movie and series pages, with the official icons (for example `3,5/5`). Films that AlloCiné marks as **Classiques**, **Le club Aime**, **Les Indés**, or **Club Scream** also get those badges next to the scores.
 
-It can also add an AlloCiné ID and a link to the AlloCiné page. You can type the ID yourself, or let the plugin fill it from IMDb / TMDb. An ID you typed is never overwritten.
+It can also add an AlloCiné ID and a link to the AlloCiné page. The plugin fills a missing ID once. An ID already on the item, including one you typed, is never overwritten. Change the ID, then refresh metadata, and the scores follow immediately.
 
 AlloCiné scores stay as their own badges. They do not replace Jellyfin, Rotten Tomatoes, or other ratings.
 
 ### ✨ Key Features
 
 -   **Press and Spectator scores** with official AlloCiné icons and French number formatting.
--   **Classiques and Le club Aime badges** when AlloCiné awards them.
--   **Optional AlloCiné ID and link** on movies and series.
--   **Never overwrites an ID you typed.**
+-   **Classiques, Le club Aime, Les Indés, and Club Scream badges** when AlloCiné awards them.
+-   **Optional AlloCiné ID and link** on movies and series. That ID is the source of truth for the scores.
+-   **Never overwrites an ID already on the item.** Change it and refresh metadata to update the scores.
 -   **Movies and series** detail pages.
 
 ---
@@ -44,7 +44,7 @@ AlloCiné scores stay as their own badges. They do not replace Jellyfin, Rotten 
 | _Standard Jellyfin Interface_ | _With Allociné Plugin_ |
 |  ![Before](img/without.png)   | ![After](img/with.png) |
 
-> _Note: Press and spectator scores appear next to the certification or duration. Classiques and Le club Aime badges follow those scores when AlloCiné awards them._
+> _Note: Press and spectator scores appear next to the certification or duration. Editorial AlloCiné badges follow those scores when AlloCiné awards them._
 
 ---
 

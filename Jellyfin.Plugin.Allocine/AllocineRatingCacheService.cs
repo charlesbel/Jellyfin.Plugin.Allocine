@@ -57,6 +57,7 @@ namespace Jellyfin.Plugin.Allocine
             AllocineRatingsRequest request,
             CancellationToken cancellationToken)
         {
+            request = await BindKnownAllocineIdAsync(request, cancellationToken).ConfigureAwait(false);
             AllocineCacheEntry? cached = await TryReadAsync(request, cancellationToken).ConfigureAwait(false);
             if (HasValidRatings(cached, request) && AllocineEditorialFlags.HasKeys(cached!.Ratings))
             {
@@ -77,6 +78,7 @@ namespace Jellyfin.Plugin.Allocine
             AllocineRatingsRequest request,
             CancellationToken cancellationToken)
         {
+            request = await BindKnownAllocineIdAsync(request, cancellationToken).ConfigureAwait(false);
             AllocineCacheEntry? cached = await TryReadAsync(request, cancellationToken).ConfigureAwait(false);
             return !IsFresh(cached, request) && IsRetryDue(cached, request);
         }
@@ -85,6 +87,7 @@ namespace Jellyfin.Plugin.Allocine
             AllocineRatingsRequest request,
             CancellationToken cancellationToken)
         {
+            request = await BindKnownAllocineIdAsync(request, cancellationToken).ConfigureAwait(false);
             string key = AllocineRatingStore.CacheKey(request);
             SemaphoreSlim gate = _inFlight.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
             await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -94,7 +97,11 @@ namespace Jellyfin.Plugin.Allocine
                 if ((IsFresh(cached, request) && AllocineEditorialFlags.HasKeys(cached?.Ratings))
                     || !IsRetryDue(cached, request))
                 {
-                    return new AllocineRefreshOutcome(AllocineRefreshResult.Skipped, CopyRatings(cached));
+                    if (!await ShouldRetryAfterResolvedIdentityAsync(cached, request, cancellationToken)
+                            .ConfigureAwait(false))
+                    {
+                        return new AllocineRefreshOutcome(AllocineRefreshResult.Skipped, CopyRatings(cached));
+                    }
                 }
 
                 Dictionary<string, string>? fetched;
@@ -110,13 +117,17 @@ namespace Jellyfin.Plugin.Allocine
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "[Allocine] Remote rating refresh failed for Jellyfin item {ItemId}", request.ItemId);
-                    await TryRecordFailureAsync(request, cancellationToken).ConfigureAwait(false);
+                    await TryRecordFailureAsync(
+                        request with { AllocineId = resolvedAllocineId ?? request.AllocineId },
+                        cancellationToken).ConfigureAwait(false);
                     return new AllocineRefreshOutcome(AllocineRefreshResult.Failed, CopyRatings(cached));
                 }
 
                 if (fetched is not { Count: > 0 })
                 {
-                    await TryRecordFailureAsync(request, cancellationToken).ConfigureAwait(false);
+                    await TryRecordFailureAsync(
+                        request with { AllocineId = resolvedAllocineId ?? request.AllocineId },
+                        cancellationToken).ConfigureAwait(false);
                     return new AllocineRefreshOutcome(AllocineRefreshResult.Failed, CopyRatings(cached));
                 }
 
@@ -166,6 +177,24 @@ namespace Jellyfin.Plugin.Allocine
             return ageInYears <= 4 ? TimeSpan.FromDays(30) : TimeSpan.FromDays(90);
         }
 
+        private async Task<AllocineRatingsRequest> BindKnownAllocineIdAsync(
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (AllocineProviderNames.IsValidId(request.AllocineId))
+            {
+                return request;
+            }
+
+            AllocineMappingEntry? mapping = await TryReadMappingAsync(request, cancellationToken).ConfigureAwait(false);
+            if (IsFreshMapping(mapping, request) && AllocineProviderNames.IsValidId(mapping!.AllocineId))
+            {
+                return request with { AllocineId = mapping.AllocineId };
+            }
+
+            return request;
+        }
+
         private static Dictionary<string, string>? CopyRatings(AllocineCacheEntry? entry)
         {
             return entry is { Found: true, Ratings: not null }
@@ -175,15 +204,18 @@ namespace Jellyfin.Plugin.Allocine
 
         private static bool IdentityMatches(AllocineCacheEntry? entry, AllocineRatingsRequest request)
         {
-            if (entry == null
-                || !string.Equals(entry.IdentityKey, AllocineRatingStore.IdentityKey(request), StringComparison.Ordinal))
+            if (entry == null)
             {
                 return false;
             }
 
-            return string.IsNullOrWhiteSpace(request.AllocineId)
-                || string.IsNullOrWhiteSpace(entry.AllocineId)
-                || string.Equals(request.AllocineId, entry.AllocineId, StringComparison.Ordinal);
+            if (AllocineProviderNames.IsValidId(request.AllocineId))
+            {
+                return string.Equals(entry.AllocineId, request.AllocineId, StringComparison.Ordinal);
+            }
+
+            return string.Equals(entry.IdentityKey, AllocineRatingStore.IdentityKey(request), StringComparison.Ordinal)
+                && !AllocineProviderNames.IsValidId(entry.AllocineId);
         }
 
         private static bool HasValidRatings(AllocineCacheEntry? entry, AllocineRatingsRequest request)
@@ -208,7 +240,8 @@ namespace Jellyfin.Plugin.Allocine
         {
             if (!IdentityMatches(entry, request)
                 || entry!.ConsecutiveFailures <= 0
-                || entry.LastAttemptAt == null)
+                || entry.LastAttemptAt == null
+                || HasNewlyResolvedAllocineId(entry, request))
             {
                 return true;
             }
@@ -223,6 +256,26 @@ namespace Jellyfin.Plugin.Allocine
             };
             TimeSpan elapsed = _timeProvider.GetUtcNow() - entry.LastAttemptAt.Value;
             return elapsed >= backoff;
+        }
+
+        private static bool HasNewlyResolvedAllocineId(AllocineCacheEntry entry, AllocineRatingsRequest request)
+        {
+            return AllocineProviderNames.IsValidId(request.AllocineId)
+                && !string.Equals(entry.AllocineId, request.AllocineId, StringComparison.Ordinal);
+        }
+
+        private async Task<bool> ShouldRetryAfterResolvedIdentityAsync(
+            AllocineCacheEntry? cached,
+            AllocineRatingsRequest request,
+            CancellationToken cancellationToken)
+        {
+            if (cached is not { Found: false } || AllocineProviderNames.IsValidId(cached.AllocineId))
+            {
+                return false;
+            }
+
+            AllocineMappingEntry? mapping = await TryReadMappingAsync(request, cancellationToken).ConfigureAwait(false);
+            return IsFreshMapping(mapping, request);
         }
 
         internal async Task<string?> GetExactAllocineIdAsync(
@@ -329,21 +382,9 @@ namespace Jellyfin.Plugin.Allocine
             bool recordProvenance = true)
         {
             string? current = item.GetProviderId(AllocineProviderNames.Key);
-            if (string.Equals(current, exactId, StringComparison.Ordinal))
+            if (AllocineProviderNames.IsValidId(current))
             {
                 return false;
-            }
-
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                AllocineNativeWriteEntry? provenance = await _store
-                    .ReadNativeWriteAsync(request.ItemId, cancellationToken)
-                    .ConfigureAwait(false);
-                if (provenance == null
-                    || !string.Equals(provenance.AllocineId, current, StringComparison.Ordinal))
-                {
-                    return false;
-                }
             }
 
             if (!item.TrySetProviderId(AllocineProviderNames.Key, exactId))
@@ -455,7 +496,7 @@ namespace Jellyfin.Plugin.Allocine
             string? allocineId = null;
             AllocineResolutionSource source = AllocineResolutionSource.None;
             AllocineMappingEntry? mapping = null;
-            if (await IsUserOwnedNativeIdAsync(request, cancellationToken).ConfigureAwait(false))
+            if (AllocineProviderNames.IsValidId(request.AllocineId))
             {
                 allocineId = request.AllocineId;
                 source = AllocineResolutionSource.ExactIdentifiers;
@@ -575,34 +616,6 @@ namespace Jellyfin.Plugin.Allocine
                 : TimeSpan.FromDays(180);
             TimeSpan age = _timeProvider.GetUtcNow() - mapping.ResolvedAt;
             return age >= TimeSpan.Zero && age <= lifetime;
-        }
-
-        private async Task<bool> IsUserOwnedNativeIdAsync(
-            AllocineRatingsRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (!AllocineProviderNames.IsValidId(request.AllocineId))
-            {
-                return false;
-            }
-
-            try
-            {
-                AllocineNativeWriteEntry? provenance = await _store
-                    .ReadNativeWriteAsync(request.ItemId, cancellationToken)
-                    .ConfigureAwait(false);
-                return provenance == null
-                    || !string.Equals(provenance.AllocineId, request.AllocineId, StringComparison.Ordinal);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Allocine] Failed to read native-id provenance for item {ItemId}", request.ItemId);
-                return true;
-            }
         }
 
         private async Task<AllocineMappingEntry?> TryReadMappingAsync(

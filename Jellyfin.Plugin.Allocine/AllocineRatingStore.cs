@@ -19,7 +19,7 @@ namespace Jellyfin.Plugin.Allocine
     /// </summary>
     public sealed class AllocineRatingStore : IDisposable
     {
-        private const int CurrentSchemaVersion = 5;
+        private const int CurrentSchemaVersion = 6;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private readonly string _databasePath;
         private readonly ILogger<AllocineRatingStore> _logger;
@@ -211,9 +211,14 @@ namespace Jellyfin.Plugin.Allocine
 
         internal static string CacheKey(AllocineRatingsRequest request)
         {
-            return string.IsNullOrWhiteSpace(request.ItemId)
-                ? IdentityKey(request)
-                : $"jellyfin:{request.ItemId.Trim().ToLowerInvariant()}";
+            string mediaType = request.MediaType.Trim().ToUpperInvariant();
+            string? allocineId = request.AllocineId;
+            if (AllocineProviderNames.IsValidId(allocineId))
+            {
+                return string.Concat(mediaType, "|id:", allocineId.Trim());
+            }
+
+            return string.Concat(mediaType, "|pending:", IdentityKey(request));
         }
 
         /// <inheritdoc />
@@ -373,9 +378,9 @@ namespace Jellyfin.Plugin.Allocine
                 SELECT identity_key, found, ratings_json, fetched_utc,
                        last_attempt_utc, consecutive_failures, allocine_id
                 FROM ratings
-                WHERE item_key = $item_key;
+                WHERE rating_key = $rating_key;
                 """;
-            command.Parameters.AddWithValue("$item_key", CacheKey(request));
+            command.Parameters.AddWithValue("$rating_key", CacheKey(request));
             await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -407,8 +412,8 @@ namespace Jellyfin.Plugin.Allocine
             await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM ratings WHERE item_key = $item_key;";
-            command.Parameters.AddWithValue("$item_key", CacheKey(request));
+            command.CommandText = "DELETE FROM ratings WHERE rating_key = $rating_key;";
+            command.Parameters.AddWithValue("$rating_key", CacheKey(request));
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -425,38 +430,24 @@ namespace Jellyfin.Plugin.Allocine
             command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
                 INSERT INTO ratings (
-                    item_key, identity_key, media_type, jellyfin_item_id, imdb_id, tmdb_id,
-                    title, original_title, production_year, found, ratings_json, fetched_utc,
-                    last_attempt_utc, consecutive_failures, allocine_id)
+                    rating_key, identity_key, media_type, allocine_id, found, ratings_json, fetched_utc,
+                    last_attempt_utc, consecutive_failures)
                 VALUES (
-                    $item_key, $identity_key, $media_type, $jellyfin_item_id, $imdb_id, $tmdb_id,
-                    $title, $original_title, $production_year, $found, $ratings_json, $fetched_utc,
-                    $fetched_utc, 0, $allocine_id)
-                ON CONFLICT(item_key) DO UPDATE SET
+                    $rating_key, $identity_key, $media_type, $allocine_id, $found, $ratings_json, $fetched_utc,
+                    $fetched_utc, 0)
+                ON CONFLICT(rating_key) DO UPDATE SET
                     identity_key = excluded.identity_key,
                     media_type = excluded.media_type,
-                    jellyfin_item_id = excluded.jellyfin_item_id,
-                    imdb_id = excluded.imdb_id,
-                    tmdb_id = excluded.tmdb_id,
-                    title = excluded.title,
-                    original_title = excluded.original_title,
-                    production_year = excluded.production_year,
+                    allocine_id = excluded.allocine_id,
                     found = excluded.found,
                     ratings_json = excluded.ratings_json,
                     fetched_utc = excluded.fetched_utc,
                     last_attempt_utc = excluded.last_attempt_utc,
-                    consecutive_failures = 0,
-                    allocine_id = excluded.allocine_id;
+                    consecutive_failures = 0;
                 """;
-            command.Parameters.AddWithValue("$item_key", CacheKey(request));
+            command.Parameters.AddWithValue("$rating_key", CacheKey(request));
             command.Parameters.AddWithValue("$identity_key", IdentityKey(request));
             command.Parameters.AddWithValue("$media_type", request.MediaType);
-            command.Parameters.AddWithValue("$jellyfin_item_id", DbValue(request.ItemId));
-            command.Parameters.AddWithValue("$imdb_id", DbValue(request.ImdbId));
-            command.Parameters.AddWithValue("$tmdb_id", DbValue(request.TmdbId));
-            command.Parameters.AddWithValue("$title", request.Title);
-            command.Parameters.AddWithValue("$original_title", DbValue(request.OriginalTitle));
-            command.Parameters.AddWithValue("$production_year", request.Year);
             command.Parameters.AddWithValue("$found", ratings is { Count: > 0 });
             command.Parameters.AddWithValue("$ratings_json", ratings is { Count: > 0 }
                 ? JsonSerializer.Serialize(ratings, JsonOptions)
@@ -477,44 +468,24 @@ namespace Jellyfin.Plugin.Allocine
             await using var command = connection.CreateCommand();
             command.CommandText = """
                 INSERT INTO ratings (
-                    item_key, identity_key, media_type, jellyfin_item_id, imdb_id, tmdb_id,
-                    title, original_title, production_year, found, ratings_json, fetched_utc,
-                    last_attempt_utc, consecutive_failures, allocine_id)
+                    rating_key, identity_key, media_type, allocine_id, found, ratings_json, fetched_utc,
+                    last_attempt_utc, consecutive_failures)
                 VALUES (
-                    $item_key, $identity_key, $media_type, $jellyfin_item_id, $imdb_id, $tmdb_id,
-                    $title, $original_title, $production_year, 0, NULL, $attempted_utc,
-                    $attempted_utc, 1, $allocine_id)
-                ON CONFLICT(item_key) DO UPDATE SET
+                    $rating_key, $identity_key, $media_type, $allocine_id, 0, NULL, $attempted_utc,
+                    $attempted_utc, 1)
+                ON CONFLICT(rating_key) DO UPDATE SET
                     identity_key = excluded.identity_key,
                     media_type = excluded.media_type,
-                    jellyfin_item_id = excluded.jellyfin_item_id,
-                    imdb_id = excluded.imdb_id,
-                    tmdb_id = excluded.tmdb_id,
-                    title = excluded.title,
-                    original_title = excluded.original_title,
-                    production_year = excluded.production_year,
-                    found = CASE WHEN ratings.identity_key = excluded.identity_key THEN ratings.found ELSE 0 END,
-                    ratings_json = CASE WHEN ratings.identity_key = excluded.identity_key THEN ratings.ratings_json ELSE NULL END,
-                    fetched_utc = CASE WHEN ratings.identity_key = excluded.identity_key THEN ratings.fetched_utc ELSE excluded.fetched_utc END,
-                    last_attempt_utc = excluded.last_attempt_utc,
-                    consecutive_failures = CASE
-                        WHEN ratings.identity_key = excluded.identity_key THEN ratings.consecutive_failures + 1
-                        ELSE 1
-                    END,
                     allocine_id = CASE
-                        WHEN ratings.identity_key = excluded.identity_key THEN ratings.allocine_id
-                        ELSE excluded.allocine_id
-                    END;
+                        WHEN excluded.allocine_id IS NOT NULL THEN excluded.allocine_id
+                        ELSE ratings.allocine_id
+                    END,
+                    last_attempt_utc = excluded.last_attempt_utc,
+                    consecutive_failures = ratings.consecutive_failures + 1;
                 """;
-            command.Parameters.AddWithValue("$item_key", CacheKey(request));
+            command.Parameters.AddWithValue("$rating_key", CacheKey(request));
             command.Parameters.AddWithValue("$identity_key", IdentityKey(request));
             command.Parameters.AddWithValue("$media_type", request.MediaType);
-            command.Parameters.AddWithValue("$jellyfin_item_id", DbValue(request.ItemId));
-            command.Parameters.AddWithValue("$imdb_id", DbValue(request.ImdbId));
-            command.Parameters.AddWithValue("$tmdb_id", DbValue(request.TmdbId));
-            command.Parameters.AddWithValue("$title", request.Title);
-            command.Parameters.AddWithValue("$original_title", DbValue(request.OriginalTitle));
-            command.Parameters.AddWithValue("$production_year", request.Year);
             command.Parameters.AddWithValue("$attempted_utc", attemptedAt.ToString("O", CultureInfo.InvariantCulture));
             command.Parameters.AddWithValue("$allocine_id", DbValue(request.AllocineId));
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -620,23 +591,17 @@ namespace Jellyfin.Plugin.Allocine
             {
                 migration.CommandText = """
                     CREATE TABLE IF NOT EXISTS ratings (
-                        item_key TEXT PRIMARY KEY NOT NULL,
+                        rating_key TEXT PRIMARY KEY NOT NULL,
                         identity_key TEXT NOT NULL,
                         media_type TEXT NOT NULL,
-                        jellyfin_item_id TEXT NULL,
-                        imdb_id TEXT NULL,
-                        tmdb_id TEXT NULL,
-                        title TEXT NOT NULL,
-                        original_title TEXT NULL,
-                        production_year INTEGER NOT NULL,
+                        allocine_id TEXT NULL,
                         found INTEGER NOT NULL,
                         ratings_json TEXT NULL,
                         fetched_utc TEXT NOT NULL,
                         last_attempt_utc TEXT NULL,
-                        consecutive_failures INTEGER NOT NULL DEFAULT 0,
-                        allocine_id TEXT NULL
+                        consecutive_failures INTEGER NOT NULL DEFAULT 0
                     );
-                    CREATE INDEX IF NOT EXISTS idx_ratings_identity_key ON ratings(identity_key);
+                    CREATE INDEX IF NOT EXISTS idx_ratings_allocine_id ON ratings(media_type, allocine_id);
                     CREATE TABLE IF NOT EXISTS mappings (
                         identity_key TEXT PRIMARY KEY NOT NULL,
                         media_type TEXT NOT NULL,
@@ -652,7 +617,7 @@ namespace Jellyfin.Plugin.Allocine
                         identity_key TEXT NOT NULL,
                         written_utc TEXT NOT NULL
                     );
-                    PRAGMA user_version=5;
+                    PRAGMA user_version=6;
                     """;
             }
             else
@@ -720,15 +685,61 @@ namespace Jellyfin.Plugin.Allocine
                         identity_key TEXT NOT NULL,
                         written_utc TEXT NOT NULL
                     );
-                    PRAGMA user_version=5;
                     """;
                 await schemaFive.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                await MigrateRatingsToAllocineIdKeyAsync(connection, (SqliteTransaction)transaction, cancellationToken).ConfigureAwait(false);
+                await using var schemaSix = connection.CreateCommand();
+                schemaSix.Transaction = (SqliteTransaction)transaction;
+                schemaSix.CommandText = "PRAGMA user_version=6;";
+                await schemaSix.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                 return;
             }
 
             await migration.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task MigrateRatingsToAllocineIdKeyAsync(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            CancellationToken cancellationToken)
+        {
+            await using var migrate = connection.CreateCommand();
+            migrate.Transaction = transaction;
+            migrate.CommandText = """
+                CREATE TABLE ratings_by_id (
+                    rating_key TEXT PRIMARY KEY NOT NULL,
+                    identity_key TEXT NOT NULL,
+                    media_type TEXT NOT NULL,
+                    allocine_id TEXT NULL,
+                    found INTEGER NOT NULL,
+                    ratings_json TEXT NULL,
+                    fetched_utc TEXT NOT NULL,
+                    last_attempt_utc TEXT NULL,
+                    consecutive_failures INTEGER NOT NULL DEFAULT 0
+                );
+                INSERT OR IGNORE INTO ratings_by_id (
+                    rating_key, identity_key, media_type, allocine_id, found, ratings_json, fetched_utc,
+                    last_attempt_utc, consecutive_failures)
+                SELECT
+                    upper(media_type) || '|id:' || trim(allocine_id),
+                    identity_key,
+                    media_type,
+                    trim(allocine_id),
+                    found,
+                    ratings_json,
+                    fetched_utc,
+                    last_attempt_utc,
+                    consecutive_failures
+                FROM ratings
+                WHERE allocine_id IS NOT NULL AND trim(allocine_id) != '' AND found = 1
+                ORDER BY found DESC, fetched_utc DESC;
+                DROP TABLE ratings;
+                ALTER TABLE ratings_by_id RENAME TO ratings;
+                CREATE INDEX IF NOT EXISTS idx_ratings_allocine_id ON ratings(media_type, allocine_id);
+                """;
+            await migrate.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task EnsureRatingsAllocineIdColumnAsync(

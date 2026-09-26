@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace Jellyfin.Plugin.Allocine
@@ -22,7 +23,7 @@ namespace Jellyfin.Plugin.Allocine
         /// </summary>
         /// <param name="allocineId">The candidate identifier.</param>
         /// <returns><see langword="true"/> when the identifier is safe to persist or turn into a URL.</returns>
-        public static bool IsValidId(string? allocineId)
+        public static bool IsValidId([NotNullWhen(true)] string? allocineId)
         {
             if (string.IsNullOrWhiteSpace(allocineId)
                 || allocineId.Length > 12

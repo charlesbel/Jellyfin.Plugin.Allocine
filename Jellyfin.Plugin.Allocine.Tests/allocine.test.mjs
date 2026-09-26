@@ -158,6 +158,25 @@ test('editorial badges render after press and spectator ratings', async () => {
         ['3,7/5', '4,4/5', 'Classiques AlloCiné', 'Le club Aime', 'native-rating']);
 });
 
+test('les indes and club scream badges render after club aime', async () => {
+    const harness = createHarness({
+        Id: 'ecrire',
+        Type: 'Movie',
+        Name: 'Écrire la vie',
+        OriginalTitle: 'Écrire la vie',
+        ProductionYear: 2026,
+        ProviderIds: { Imdb: 'tt0000001', Tmdb: '1' },
+    }, { presse: '3.6', public: '3.5', lesIndes: '1', clubScream: '1' });
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    assert.equal(harness.badges.length, 4);
+    assert.equal(harness.badges[2].title, 'Les Indés');
+    assert.match(harness.badges[2].children[0].src, /Allocine\/Badge\/les-indes/);
+    assert.equal(harness.badges[3].title, 'Club Scream');
+    assert.match(harness.badges[3].children[0].src, /Allocine\/Badge\/club-scream/);
+});
+
 function deferred() {
     let resolve;
     let reject;

@@ -142,7 +142,7 @@ public sealed class AllocineRefreshTaskTests
                 AllocineResolutionSource.ExactIdentifiers,
                 CancellationToken.None);
             await store.WriteAsync(
-                request,
+                request with { AllocineId = "182745" },
                 AllocineEditorialFlags.WithDefaults(new Dictionary<string, string> { ["public"] = "4.4", ["press"] = "3.7" }),
                 DateTimeOffset.UtcNow,
                 CancellationToken.None);
@@ -247,7 +247,7 @@ public sealed class AllocineRefreshTaskTests
     }
 
     [Fact]
-    public async Task ScheduledRunReplacesPluginOwnedNativeIdWhenExactMappingExpiresAfter180Days()
+    public async Task ScheduledRunDoesNotReplaceAPluginOwnedNativeIdAfterMappingExpiry()
     {
         string directory = Path.Combine(Path.GetTempPath(), $"allocine-task-180d-{Guid.NewGuid():N}");
         try
@@ -280,7 +280,7 @@ public sealed class AllocineRefreshTaskTests
                 CancellationToken.None);
             await store.WriteAsync(
                 request,
-                new Dictionary<string, string> { ["public"] = "1.0" },
+                AllocineEditorialFlags.WithDefaults(new Dictionary<string, string> { ["public"] = "1.0" }),
                 now,
                 CancellationToken.None);
 
@@ -307,22 +307,22 @@ public sealed class AllocineRefreshTaskTests
 
             await task.ExecuteAsync(new Progress<double>(), CancellationToken.None);
 
-            Assert.Equal("222", movie.GetProviderId(AllocineProviderNames.Key));
+            Assert.Equal("111", movie.GetProviderId(AllocineProviderNames.Key));
             AllocineMappingEntry? persisted = await store.ReadMappingAsync(request, CancellationToken.None);
-            Assert.Equal("222", persisted?.AllocineId);
+            Assert.Equal("111", persisted?.AllocineId);
             Assert.Equal(AllocineResolutionSource.ExactIdentifiers, persisted?.Source);
             Dictionary<string, string>? ratings = await cache.GetRatingsAsync(
-                request with { AllocineId = "222" },
+                request with { AllocineId = "111" },
                 CancellationToken.None);
-            Assert.Equal("4.8", ratings?["public"]);
-            Assert.Equal(1, mapping.ExactCalls);
+            Assert.Equal("1.0", ratings?["public"]);
+            Assert.Equal(0, mapping.ExactCalls);
             library.Verify(
                 manager => manager.UpdateItemAsync(
                     movie,
                     It.IsAny<BaseItem>(),
                     ItemUpdateType.MetadataImport,
                     It.IsAny<CancellationToken>()),
-                Times.Once);
+                Times.Never);
         }
         finally
         {
@@ -385,7 +385,8 @@ public sealed class AllocineRefreshTaskTests
 
             Assert.Equal("555", movie.GetProviderId(AllocineProviderNames.Key));
             AllocineMappingEntry? persisted = await store.ReadMappingAsync(request, CancellationToken.None);
-            Assert.Equal("222", persisted?.AllocineId);
+            Assert.Equal("111", persisted?.AllocineId);
+            Assert.Equal(0, mapping.ExactCalls);
             library.Verify(
                 manager => manager.UpdateItemAsync(
                     It.IsAny<BaseItem>(),

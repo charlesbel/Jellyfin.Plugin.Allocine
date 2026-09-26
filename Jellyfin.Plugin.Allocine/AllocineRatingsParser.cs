@@ -53,12 +53,14 @@ namespace Jellyfin.Plugin.Allocine
 
             bool classiques = ContainsEditorialMarker(html, "button-classiques-gold", "gelule_classiqueor");
             bool clubAime = ContainsEditorialMarker(html, "button-club-300", "gelule_clubaime");
-            if (ratings.Count == 0 && !classiques && !clubAime)
+            bool lesIndes = ContainsEditorialMarker(html, "button-les-indes", "gelule_lesindes");
+            bool clubScream = ContainsEditorialMarker(html, "button-club-scream", "gelule_clubscream");
+            if (ratings.Count == 0 && !classiques && !clubAime && !lesIndes && !clubScream)
             {
                 return null;
             }
 
-            AllocineEditorialFlags.Apply(ratings, classiques, clubAime);
+            AllocineEditorialFlags.Apply(ratings, classiques, clubAime, lesIndes, clubScream);
             return ratings;
         }
 
@@ -78,9 +80,14 @@ namespace Jellyfin.Plugin.Allocine
 
         private static bool TrackingAttributeContains(string html, string trackingName)
         {
+            string escaped = Regex.Escape(trackingName);
             return Regex.IsMatch(
                 html,
-                @"data-allocine-tracking-position-name\s*=\s*([""'])" + Regex.Escape(trackingName) + @"\1",
+                @"data-allocine-tracking-position-name\s*=\s*([""'])" + escaped + @"\1",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                html,
+                @"(?:&quot;|"")position_name(?:&quot;|"")\s*:\s*(?:&quot;|"")" + escaped + @"(?:&quot;|"")",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 

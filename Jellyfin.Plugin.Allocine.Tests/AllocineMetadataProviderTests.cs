@@ -138,7 +138,7 @@ public sealed class AllocineMetadataProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task PluginOwnedNativeIdIsReplacedWhenANewExactIdentityIsProven()
+    public async Task PluginOwnedNativeIdIsNotReplacedWhenANewExactIdentityIsProven()
     {
         var movie = Movie("tt1234567", "123");
         RecordingMappingProvider first = Exact("111");
@@ -152,8 +152,9 @@ public sealed class AllocineMetadataProviderTests : IDisposable
 
         ItemUpdateType update = await replacement.FetchAsync(movie, Options(), CancellationToken.None);
 
-        Assert.Equal(ItemUpdateType.MetadataImport, update);
-        Assert.Equal("222", movie.GetProviderId(AllocineProviderNames.Key));
+        Assert.Equal(ItemUpdateType.None, update);
+        Assert.Equal("111", movie.GetProviderId(AllocineProviderNames.Key));
+        Assert.Equal(0, second.ExactCalls);
     }
 
     [Fact]

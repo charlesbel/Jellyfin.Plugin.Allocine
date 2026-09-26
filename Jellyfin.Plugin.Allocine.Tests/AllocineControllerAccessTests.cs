@@ -64,13 +64,21 @@ public sealed class AllocineControllerAccessTests : IDisposable
 
         FileStreamResult classiques = Assert.IsType<FileStreamResult>(controller.GetBadge("classiques"));
         FileStreamResult clubAime = Assert.IsType<FileStreamResult>(controller.GetBadge("club-aime"));
+        FileStreamResult lesIndes = Assert.IsType<FileStreamResult>(controller.GetBadge("les-indes"));
+        FileStreamResult clubScream = Assert.IsType<FileStreamResult>(controller.GetBadge("club-scream"));
         using var classiquesReader = new StreamReader(classiques.FileStream);
         using var clubReader = new StreamReader(clubAime.FileStream);
+        using var lesIndesReader = new StreamReader(lesIndes.FileStream);
+        using var screamReader = new StreamReader(clubScream.FileStream);
 
         Assert.Equal("image/svg+xml", classiques.ContentType);
         Assert.Contains("viewBox=\"0 0 97 20\"", classiquesReader.ReadToEnd(), StringComparison.Ordinal);
         Assert.Equal("image/svg+xml", clubAime.ContentType);
         Assert.Contains("fill=\"#333\"", clubReader.ReadToEnd(), StringComparison.Ordinal);
+        Assert.Equal("image/svg+xml", lesIndes.ContentType);
+        Assert.Contains("viewBox=\"0 0 40 8\"", lesIndesReader.ReadToEnd(), StringComparison.Ordinal);
+        Assert.Equal("image/svg+xml", clubScream.ContentType);
+        Assert.Contains("data:image/png;base64,", screamReader.ReadToEnd(), StringComparison.Ordinal);
         Assert.IsType<NotFoundResult>(controller.GetBadge("../allocine.js"));
         Assert.IsType<NotFoundResult>(controller.GetBadge("unknown"));
     }

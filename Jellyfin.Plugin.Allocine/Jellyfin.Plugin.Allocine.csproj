@@ -9,8 +9,8 @@
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
     <Authors>]@charlesbel</Authors>
-    <Description>Affiche les notes Presse et Spectateurs d'Allociné, ainsi que les badges Classiques et Le club Aime.</Description>
-    <Version>0.5.3.0</Version>
+    <Description>Affiche les notes Presse et Spectateurs d'Allociné, ainsi que les badges Classiques, Le club Aime, Les Indés et Club Scream.</Description>
+    <Version>0.6.0.0</Version>
     <RepositoryUrl>https://github.com/charlesbel/Jellyfin.Plugin.Allocine</RepositoryUrl>
     <PathMap>$(MSBuildProjectDirectory)=/_/Jellyfin.Plugin.Allocine</PathMap>
   </PropertyGroup>
@@ -40,8 +40,12 @@
     <EmbeddedResource Include="Configuration\configPage.html" />
     <None Remove="Badges\classiques.svg" />
     <None Remove="Badges\club-aime.svg" />
+    <None Remove="Badges\les-indes.svg" />
+    <None Remove="Badges\club-scream.svg" />
     <EmbeddedResource Include="Badges\classiques.svg" />
     <EmbeddedResource Include="Badges\club-aime.svg" />
+    <EmbeddedResource Include="Badges\les-indes.svg" />
+    <EmbeddedResource Include="Badges\club-scream.svg" />
   </ItemGroup>
 
 </Project>
